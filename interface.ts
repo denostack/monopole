@@ -1,14 +1,22 @@
 
 export type ConstructType<T> = new (...args: any[]) => T
-export type MaybePromise<T> = T | Promise<T>
-
 export type Name<T> = ConstructType<T> | string | symbol
 
-export interface ContainerFluent {
-  // assign(string $paramName, $target): ContainerFluent
-  // assignMany(array $params = []): ContainerFluent
-  // wire(string $propertyName, $target): ContainerFluent
-  // wireMany(array $properties): ContainerFluent
-  // factory(): ContainerFluent
-  freeze(): ContainerFluent
+export interface ProviderDescriptor {
+  instance<T>(name: Name<T>, value: T): this
+  resolver<T>(name: Name<T>, resolver: () => T): this
+  bind<T>(constructor: ConstructType<T>): this
+  bind<T>(name: Name<T>, constructor: ConstructType<T>): this
+
+  alias(name: Name<any>, target: Name<any>): this
+
+  create<T>(ctor: ConstructType<T>): T
+  get<T>(name: Name<T>): T
+  has<T>(name: Name<T>): boolean
+}
+
+export interface Provider {
+  register(app: ProviderDescriptor): void
+  boot?(app: ProviderDescriptor): void
+  close?(app: ProviderDescriptor): void
 }

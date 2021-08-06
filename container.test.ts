@@ -241,3 +241,81 @@ Deno.test('run create (factory)', () => {
 
   assertNotStrictEquals(container.create(Controller), controller)
 })
+
+Deno.test('boot', () => {
+  const container = new Container()
+
+  let countCallRegister = 0
+  let countCallBoot = 0
+
+  container.register({
+    register() {
+      countCallRegister++
+    },
+    boot() {
+      countCallBoot++
+    },
+  })
+
+  container.boot()
+  container.boot()
+  container.boot()
+
+  assertEquals(countCallRegister, 1)
+  assertEquals(countCallBoot, 1)
+})
+
+Deno.test('boot force', () => {
+  const container = new Container()
+
+  let countCallRegister = 0
+  let countCallBoot = 0
+
+  container.register({
+    register() {
+      countCallRegister++
+    },
+    boot() {
+      countCallBoot++
+    },
+  })
+
+  container.boot()
+  container.boot()
+  container.boot()
+
+  container.boot(true)
+
+  assertEquals(countCallRegister, 2)
+  assertEquals(countCallBoot, 2)
+})
+
+Deno.test('close', () => {
+  const container = new Container()
+
+  let countCallRegister = 0
+  let countCallBoot = 0
+  let countCallClose = 0
+
+  container.register({
+    register() {
+      countCallRegister++
+    },
+    boot() {
+      countCallBoot++
+    },
+    close() {
+      countCallClose++
+    },
+  })
+
+  container.boot()
+  container.close() // reset
+
+  container.boot()
+
+  assertEquals(countCallRegister, 2)
+  assertEquals(countCallBoot, 2)
+  assertEquals(countCallClose, 1)
+})
+

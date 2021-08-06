@@ -1,9 +1,11 @@
-import { Name, ConstructType } from './interface.ts'
+import { Name, ConstructType, Provider, ProviderDescriptor } from './interface.ts'
 import { metadata } from './metadata.ts'
 import { UndefinedError } from './error.ts'
 import { nameToString } from './_utils.ts'
 
-export class Container  {
+export class Container implements ProviderDescriptor {
+
+  _booted: boolean
 
   _instances: Map<any, any>
   _resolvers: Map<any, () => any>
@@ -13,9 +15,12 @@ export class Container  {
 
   _freezes: Set<any>
 
+  _providers: Provider[]
 
   constructor() {
 
+  constructor() {
+    this._booted = false
     this._instances = new Map<any, any>([
       [Container, this],
     ])
@@ -27,6 +32,8 @@ export class Container  {
     ])
 
     this._freezes = new Set<any>()
+
+    this._providers = []
   }
 
   instance<T>(name: Name<T>, value: T): this {
@@ -115,5 +122,33 @@ export class Container  {
       this._binds.delete(name)
       this._aliases.delete(name)
     }
+  }
+
+  register(provider: Provider): void {
+    if (this._booted) {
+      throw new Error('ㅊannot register a provider after booting.')
+    }
+    this._providers.push(provider)
+  }
+
+  boot(forced = false): this {
+    if (this._booted && !forced) {
+      return this
+    }
+
+    this._providers.map(p => p.register(this))
+    this._providers.filter(p => p.boot).map(p => p.boot!(this))
+
+    this._booted = true
+
+    return this
+  }
+
+  close(): this {
+    if (this._booted) {
+      this._providers.filter(p => p.close).map(p => p.close!(this))
+    }
+    this._booted = false
+    return this
   }
 }
