@@ -66,13 +66,15 @@ export class Container  {
   }
 
   get<T>(name: Name<T>): T {
+    const freezeNames = [name]
     if (this._aliases.has(name)) {
       name = this._aliases.get(name)
+      freezeNames.push(name)
     }
     
     let instance: any | undefined
     if ((instance = this._instances.get(name))) {
-      this._freezes.add(name)
+      freezeNames.forEach(name => this._freezes.add(name))
       return instance
     }
 
@@ -80,7 +82,7 @@ export class Container  {
     if ((resolver = this._resolvers.get(name))) {
       const instance = resolver()
       this._instances.set(name, instance) // singleton
-      this._freezes.add(name)
+      freezeNames.forEach(name => this._freezes.add(name))
       return instance
     }
 
@@ -88,7 +90,7 @@ export class Container  {
     if ((ctor = this._binds.get(name))) {
       const instance = this.create(ctor)
       this._instances.set(name, instance)
-      this._freezes.add(name)
+      freezeNames.forEach(name => this._freezes.add(name))
       return instance
     }
 
@@ -104,8 +106,14 @@ export class Container  {
 
   delete(...names: Name<any>[]): void {
     for (const name of names) {
+      if (this._freezes.has(name)) {
+        throw new Error(`${nameToString(name)} is already frozen.`)
+      }
+
       this._instances.delete(name)
       this._resolvers.delete(name)
+      this._binds.delete(name)
+      this._aliases.delete(name)
     }
   }
 }

@@ -122,6 +122,75 @@ Deno.test('has', () => {
   assertEquals(container.has('unknown'), false)
 })
 
+Deno.test('delete', () => {
+  const container = new Container()
+
+  class Driver1 {
+  }
+
+  class Driver2 {
+  }
+
+  container.instance('instance', { message: 'this is instance' })
+  container.resolver('resolver', () => ({ message: 'this is resolver' }))
+  container.bind('driver1', Driver1)
+  container.bind(Driver2)
+  container.alias('alias1', 'instance')
+
+  assertEquals(container.has('instance'), true)
+  assertEquals(container.has('resolver'), true)
+  assertEquals(container.has('driver1'), true)
+  assertEquals(container.has(Driver2), true)
+  assertEquals(container.has('alias1'), true)
+
+  container.delete('instance')
+  container.delete('resolver')
+  container.delete('driver1')
+  container.delete(Driver2)
+  container.delete('alias1')
+
+  assertEquals(container.has('instance'), false)
+  assertEquals(container.has('resolver'), false)
+  assertEquals(container.has('driver1'), false)
+  assertEquals(container.has(Driver2), false)
+  assertEquals(container.has('alias1'), false)
+})
+
+Deno.test('freeze', () => {
+  const container = new Container()
+
+  class Driver1 {
+  }
+
+  class Driver2 {
+  }
+
+  container.instance('instance', { message: 'this is instance' })
+  container.resolver('resolver', () => ({ message: 'this is resolver' }))
+  container.bind('driver1', Driver1)
+  container.bind(Driver2)
+  container.alias('alias', 'instance')
+
+  assertEquals(container.has('instance'), true)
+  assertEquals(container.has('resolver'), true)
+  assertEquals(container.has('driver1'), true)
+  assertEquals(container.has(Driver2), true)
+  assertEquals(container.has('alias'), true)
+
+  container.get('instance')
+  container.get('resolver')
+  container.get('driver1')
+  container.get(Driver2)
+  container.get('alias')
+
+  assertThrows(() => container.delete('instance'), Error, '"instance" is already frozen.')
+  assertThrows(() => container.delete('resolver'), Error, '"resolver" is already frozen.')
+  assertThrows(() => container.delete('driver1'), Error, '"driver1" is already frozen.')
+  assertThrows(() => container.delete(Driver2), Error, 'Driver2 is already frozen.')
+  assertThrows(() => container.delete('alias'), Error, '"alias" is already frozen.')
+})
+
+
 Deno.test('undefined error', () => {
   const container = new Container()
 
