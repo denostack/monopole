@@ -97,6 +97,31 @@ Deno.test('define alias', () => {
   assertStrictEquals(result4, container.get('alias4'))
 })
 
+
+Deno.test('has', () => {
+  const container = new Container()
+
+  class Driver1 {
+  }
+
+  class Driver2 {
+  }
+
+  container.instance('instance', { message: 'this is instance' })
+  container.resolver('resolver', () => ({ message: 'this is resolver' }))
+  container.bind('driver1', Driver1)
+  container.bind(Driver2)
+  container.alias('alias1', 'instance')
+
+  assertEquals(container.has('instance'), true)
+  assertEquals(container.has('resolver'), true)
+  assertEquals(container.has('driver1'), true)
+  assertEquals(container.has(Driver2), true)
+  assertEquals(container.has('alias1'), true)
+
+  assertEquals(container.has('unknown'), false)
+})
+
 Deno.test('undefined error', () => {
   const container = new Container()
 

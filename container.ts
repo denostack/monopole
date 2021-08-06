@@ -1,7 +1,7 @@
 import { Name, ConstructType } from './interface.ts'
 import { metadata } from './metadata.ts'
 import { UndefinedError } from './error.ts'
-
+import { nameToString } from './_utils.ts'
 
 export class Container  {
 
@@ -97,6 +97,9 @@ export class Container  {
 
   has<T>(name: Name<T>): boolean {
     return this._instances.has(name)
+     || this._resolvers.has(name)
+     || this._binds.has(name)
+     || this._aliases.has(name)
   }
 
   delete(...names: Name<any>[]): void {
