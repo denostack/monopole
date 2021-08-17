@@ -33,7 +33,7 @@ export class Container implements ProviderDescriptor {
       ["container", Container],
     ]);
 
-    this._freezes = new Set<any>();
+    this._freezes = new Set<any>(["container", Container]);
 
     this._providers = [];
   }

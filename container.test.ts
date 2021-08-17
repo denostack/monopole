@@ -12,6 +12,18 @@ import { UndefinedError } from "./error.ts";
 Deno.test("predefined values", () => {
   const container = new Container();
 
+  assertThrows(
+    () => container.delete(Container),
+    Error,
+    "Container is already frozen.",
+  );
+
+  assertThrows(
+    () => container.delete("container"),
+    Error,
+    '"container" is already frozen.',
+  );
+
   assertStrictEquals(container.get(Container), container);
   assertStrictEquals(container.get("container"), container);
 });
