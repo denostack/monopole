@@ -56,7 +56,7 @@ class Database {
 
 class Connection {
   @Inject("database")
-  database: Database;
+  database!: Database;
 }
 
 container.bind("database", Database);
@@ -75,7 +75,7 @@ console.log(connection.database); // Database {}
 ```ts
 class Controller {
   @Inject(Connection)
-  connection: Connection;
+  connection!: Connection;
 }
 
 // without define
@@ -116,10 +116,10 @@ controller
 ```ts
 export class UserController {
   @Inject(Connection)
-  connection: Connection
+  connection!: Connection;
 
   @Inject(Connection, (conn) => conn.getRepository(User))
-  repoUsers: Repository<User>,
+  repoUsers!: Repository<User>;
 }
 ```
 
