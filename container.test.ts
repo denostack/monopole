@@ -384,14 +384,36 @@ Deno.test("resolve circular dependency bind", () => {
     public a!: A;
   }
 
-  container.bind(A);
-  container.bind(B);
+  container.bind("a", A);
+  container.bind("b", B);
 
-  container.alias("a", A);
-  container.alias("b", B);
+  // assert
+  const instA = container.get<A>("a");
+  const instB = container.get<B>("b");
 
-  assertEquals(container.get(A) instanceof A, true);
-  assertEquals(container.get(B) instanceof B, true);
+  assertEquals(instA instanceof A, true);
+  assertEquals(instB instanceof B, true);
+
+  assertStrictEquals(instA.b, instB);
+  assertStrictEquals(instB.a, instA);
+});
+
+Deno.test("resolve self dependency bind", () => {
+  const container = new Container();
+
+  class A {
+    @Inject("a")
+    public a!: A;
+  }
+
+  container.bind("a", A);
+
+  // assert
+  const instA = container.get<A>("a");
+
+  assertEquals(instA instanceof A, true);
+
+  assertStrictEquals(instA.a, instA);
 });
 
 Deno.test("undefined error", () => {
