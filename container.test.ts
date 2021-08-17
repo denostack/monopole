@@ -562,6 +562,48 @@ resolve stack:
   }
 });
 
+Deno.test("undefined error (alias)", () => {
+  class Something {}
+
+  const container = new Container();
+
+  container.resolver("instance", () => ({ instance: container.get("alias1") }));
+  container.alias("alias1", "alias2");
+  container.alias("alias2", Something);
+
+  const err1 = assertThrows(
+    () => container.get("alias2"),
+    UndefinedError,
+    `Something is undefined!
+resolve stack:
+  [0] (alias) "alias2"
+  [1] Something`,
+  ) as UndefinedError;
+  assertStrictEquals(err1.target, Something);
+  assertEquals(err1.resolveStack, [
+    { alias: "alias2" },
+    Something,
+  ]);
+
+  const err2 = assertThrows(
+    () => container.get("instance"),
+    UndefinedError,
+    `"instance" is undefined!
+resolve stack:
+  [0] "instance"
+  [1] (alias) "alias1"
+  [2] (alias) "alias2"
+  [3] Something`,
+  ) as UndefinedError;
+  assertStrictEquals(err2.target, "instance");
+  assertEquals(err2.resolveStack, [
+    "instance",
+    { alias: "alias1" },
+    { alias: "alias2" },
+    Something,
+  ]);
+});
+
 Deno.test("undefined error (many stack)", () => {
   class Something {}
 

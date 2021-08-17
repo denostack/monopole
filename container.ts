@@ -71,16 +71,17 @@ export class Container implements ProviderDescriptor {
   }
 
   get<T>(name: Name<T>): T {
-    const freezeNames = [name];
-    if (this._aliases.has(name)) {
+    const aliasNames = [];
+    while (this._aliases.has(name)) {
+      aliasNames.push(name);
       name = this._aliases.get(name);
-      freezeNames.push(name);
     }
 
     try {
       let instance: any | undefined;
       if ((instance = this._instances.get(name))) {
-        freezeNames.forEach((name) => this._freezes.add(name));
+        aliasNames.forEach((name) => this._freezes.add(name));
+        this._freezes.add(name);
         return instance;
       }
 
@@ -88,7 +89,8 @@ export class Container implements ProviderDescriptor {
       if ((resolver = this._resolvers.get(name))) {
         const instance = resolver();
         this._instances.set(name, instance); // singleton
-        freezeNames.forEach((name) => this._freezes.add(name));
+        aliasNames.forEach((name) => this._freezes.add(name));
+        this._freezes.add(name);
         return instance;
       }
 
@@ -96,18 +98,19 @@ export class Container implements ProviderDescriptor {
       if ((ctor = this._binds.get(name))) {
         const instance = new ctor();
         this._instances.set(name, instance);
-        freezeNames.forEach((name) => this._freezes.add(name));
+        aliasNames.forEach((name) => this._freezes.add(name));
+        this._freezes.add(name);
         return this._inject(instance, metadata.inject.get(ctor) || []);
       }
     } catch (e) {
       if (e instanceof UndefinedError) {
-        throw new UndefinedError(name, e.resolveStack);
+        throw new UndefinedError(name, aliasNames, e.resolveStack);
       } else {
         throw e;
       }
     }
 
-    throw new UndefinedError(name);
+    throw new UndefinedError(name, aliasNames);
   }
 
   has<T>(name: Name<T>): boolean {
