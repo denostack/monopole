@@ -171,3 +171,6 @@ export class Container implements ProviderDescriptor {
     return instance;
   }
 }
+
+// default container
+export const container = new Container();
