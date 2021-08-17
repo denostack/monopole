@@ -354,3 +354,26 @@ Deno.test("close", () => {
   assertEquals(countCallBoot, 2);
   assertEquals(countCallClose, 1);
 });
+
+Deno.test("resolve circular dependency bind", () => {
+  const container = new Container();
+
+  class A {
+    @Inject("b")
+    public b!: B;
+  }
+
+  class B {
+    @Inject("a")
+    public a!: A;
+  }
+
+  container.bind(A);
+  container.bind(B);
+
+  container.alias("a", A);
+  container.alias("b", B);
+
+  assertEquals(container.get(A) instanceof A, true);
+  assertEquals(container.get(B) instanceof B, true);
+});

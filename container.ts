@@ -4,7 +4,7 @@ import {
   Provider,
   ProviderDescriptor,
 } from "./interface.ts";
-import { metadata } from "./metadata.ts";
+import { metadata, MetadataInjectProp } from "./metadata.ts";
 import { UndefinedError } from "./error.ts";
 import { nameToString } from "./_utils.ts";
 
@@ -68,15 +68,7 @@ export class Container implements ProviderDescriptor {
 
   create<T>(ctor: ConstructType<T>): T {
     const instance = new ctor();
-
-    for (
-      const { name, resolver, property } of metadata.inject.get(ctor) || []
-    ) {
-      const prop = this.get(name);
-      (instance as any)[property] = resolver ? resolver(prop) : prop;
-    }
-
-    return instance;
+    return this._inject(instance, metadata.inject.get(ctor) || []);
   }
 
   get<T>(name: Name<T>): T {
@@ -102,10 +94,10 @@ export class Container implements ProviderDescriptor {
 
     let ctor: ConstructType<any> | undefined;
     if ((ctor = this._binds.get(name))) {
-      const instance = this.create(ctor);
+      const instance = new ctor();
       this._instances.set(name, instance);
       freezeNames.forEach((name) => this._freezes.add(name));
-      return instance;
+      return this._inject(instance, metadata.inject.get(ctor) || []);
     }
 
     throw new UndefinedError(name);
@@ -157,5 +149,15 @@ export class Container implements ProviderDescriptor {
     }
     this._booted = false;
     return this;
+  }
+
+  _inject<T>(instance: T, metaInjects: MetadataInjectProp[]): T {
+    for (
+      const { name, resolver, property } of metaInjects
+    ) {
+      const prop = this.get(name);
+      (instance as any)[property] = resolver ? resolver(prop) : prop;
+    }
+    return instance;
   }
 }
