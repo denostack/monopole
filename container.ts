@@ -77,26 +77,34 @@ export class Container implements ProviderDescriptor {
       freezeNames.push(name);
     }
 
-    let instance: any | undefined;
-    if ((instance = this._instances.get(name))) {
-      freezeNames.forEach((name) => this._freezes.add(name));
-      return instance;
-    }
+    try {
+      let instance: any | undefined;
+      if ((instance = this._instances.get(name))) {
+        freezeNames.forEach((name) => this._freezes.add(name));
+        return instance;
+      }
 
-    let resolver: (() => any) | undefined;
-    if ((resolver = this._resolvers.get(name))) {
-      const instance = resolver();
-      this._instances.set(name, instance); // singleton
-      freezeNames.forEach((name) => this._freezes.add(name));
-      return instance;
-    }
+      let resolver: (() => any) | undefined;
+      if ((resolver = this._resolvers.get(name))) {
+        const instance = resolver();
+        this._instances.set(name, instance); // singleton
+        freezeNames.forEach((name) => this._freezes.add(name));
+        return instance;
+      }
 
-    let ctor: ConstructType<any> | undefined;
-    if ((ctor = this._binds.get(name))) {
-      const instance = new ctor();
-      this._instances.set(name, instance);
-      freezeNames.forEach((name) => this._freezes.add(name));
-      return this._inject(instance, metadata.inject.get(ctor) || []);
+      let ctor: ConstructType<any> | undefined;
+      if ((ctor = this._binds.get(name))) {
+        const instance = new ctor();
+        this._instances.set(name, instance);
+        freezeNames.forEach((name) => this._freezes.add(name));
+        return this._inject(instance, metadata.inject.get(ctor) || []);
+      }
+    } catch (e) {
+      if (e instanceof UndefinedError) {
+        throw new UndefinedError(name, e.resolveStack);
+      } else {
+        throw e;
+      }
     }
 
     throw new UndefinedError(name);

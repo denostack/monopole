@@ -9,6 +9,13 @@ import { Container } from "./container.ts";
 import { Inject } from "./decorator.ts";
 import { FrozenError, UndefinedError } from "./error.ts";
 
+function assertArrayEquals(actual: any[], expected: any[]) {
+  assertEquals(actual.length, expected.length);
+  actual.forEach((item, itemIndex) => {
+    assertStrictEquals(item, expected[itemIndex]);
+  });
+}
+
 Deno.test("predefined values", () => {
   const container = new Container();
 
@@ -239,7 +246,7 @@ Deno.test("undefined error", () => {
   assertThrows(
     () => container.get("undefined"),
     UndefinedError,
-    '"undefined" is not defined!',
+    '"undefined" is undefined!',
   );
 });
 
@@ -385,4 +392,205 @@ Deno.test("resolve circular dependency bind", () => {
 
   assertEquals(container.get(A) instanceof A, true);
   assertEquals(container.get(B) instanceof B, true);
+});
+
+Deno.test("undefined error", () => {
+  const container = new Container();
+
+  const name1 = "instance";
+  const error1 = assertThrows(
+    () => container.get(name1),
+    UndefinedError,
+    `"instance" is undefined!
+resolve stack:
+  [0] "instance"`,
+  ) as UndefinedError;
+  assertStrictEquals(error1.target, name1);
+  assertArrayEquals(error1.resolveStack, [name1]);
+
+  const name2 = Symbol("symbol");
+  const error2 = assertThrows(
+    () => container.get(name2),
+    UndefinedError,
+    `Symbol(symbol) is undefined!
+resolve stack:
+  [0] Symbol(symbol)`,
+  ) as UndefinedError;
+  assertStrictEquals(error2.target, name2);
+  assertArrayEquals(error2.resolveStack, [name2]);
+
+  class Something {}
+  const name3 = Something;
+  const error3 = assertThrows(
+    () => container.get(name3),
+    UndefinedError,
+    `Something is undefined!
+resolve stack:
+  [0] Something`,
+  ) as UndefinedError;
+  assertStrictEquals(error3.target, name3);
+  assertArrayEquals(error3.resolveStack, [name3]);
+
+  const name4 = (() => class {})();
+  const error4 = assertThrows(
+    () => container.get(name4),
+    UndefinedError,
+    `(anonymous class) is undefined!
+resolve stack:
+  [0] (anonymous class)`,
+  ) as UndefinedError;
+  assertStrictEquals(error4.target, name4);
+  assertArrayEquals(error4.resolveStack, [name4]);
+});
+
+Deno.test("undefined error (stack)", () => {
+  class Something {}
+  const testcases = [
+    {
+      stack: ["resolver1", "instance"],
+      errorMessage: `"resolver1" is undefined!
+resolve stack:
+  [0] "resolver1"
+  [1] "instance"`,
+    },
+    {
+      stack: ["resolver2", Symbol("symbol2")],
+      errorMessage: `"resolver2" is undefined!
+resolve stack:
+  [0] "resolver2"
+  [1] Symbol(symbol2)`,
+    },
+    {
+      stack: ["resolver3", Something],
+      errorMessage: `"resolver3" is undefined!
+resolve stack:
+  [0] "resolver3"
+  [1] Something`,
+    },
+    {
+      stack: ["resolver4", (() => class {})()],
+      errorMessage: `"resolver4" is undefined!
+resolve stack:
+  [0] "resolver4"
+  [1] (anonymous class)`,
+    },
+  ];
+
+  const container = new Container();
+
+  for (const { stack, errorMessage } of testcases) {
+    container.resolver(
+      stack[0],
+      () => ({ instance: container.get(stack[1]) }),
+    );
+    const err = assertThrows(
+      () => container.get(stack[0]),
+      UndefinedError,
+      errorMessage,
+    ) as UndefinedError;
+    assertStrictEquals(err.target, stack[0]);
+    assertArrayEquals(err.resolveStack, stack);
+  }
+});
+
+Deno.test("undefined error (stack)", () => {
+  class Bind1 {
+    @Inject("instance1")
+    public param: any;
+  }
+
+  const symbol2 = Symbol("symbol2");
+  class Bind2 {
+    @Inject(symbol2)
+    public param: any;
+  }
+
+  class Something {}
+  class Bind3 {
+    @Inject(Something)
+    public param: any;
+  }
+
+  const anonymous = (() => class {})();
+  class Bind4 {
+    @Inject(anonymous)
+    public param: any;
+  }
+
+  const testcases: { stack: [any, any]; errorMessage: string }[] = [
+    {
+      stack: [Bind1, "instance1"],
+      errorMessage: `Bind1 is undefined!
+resolve stack:
+  [0] Bind1
+  [1] "instance1"`,
+    },
+    {
+      stack: [Bind2, symbol2],
+      errorMessage: `Bind2 is undefined!
+resolve stack:
+  [0] Bind2
+  [1] Symbol(symbol2)`,
+    },
+    {
+      stack: [Bind3, Something],
+      errorMessage: `Bind3 is undefined!
+resolve stack:
+  [0] Bind3
+  [1] Something`,
+    },
+    {
+      stack: [Bind4, anonymous],
+      errorMessage: `Bind4 is undefined!
+resolve stack:
+  [0] Bind4
+  [1] (anonymous class)`,
+    },
+  ];
+
+  const container = new Container();
+
+  for (const { stack, errorMessage } of testcases) {
+    container.bind(stack[0], stack[0]);
+    const err = assertThrows(
+      () => container.get(stack[0]),
+      UndefinedError,
+      errorMessage,
+    ) as UndefinedError;
+    assertStrictEquals(err.target, stack[0]);
+    assertArrayEquals(err.resolveStack, stack);
+  }
+});
+
+Deno.test("undefined error (many stack)", () => {
+  class Something {}
+
+  const container = new Container();
+
+  const stack = [
+    "instance",
+    Symbol("symbol"),
+    Something,
+    (() => class {})(),
+    "unknown",
+  ];
+
+  container.resolver(stack[0], () => ({ instance: container.get(stack[1]) }));
+  container.resolver(stack[1], () => ({ instance: container.get(stack[2]) }));
+  container.resolver(stack[2], () => ({ instance: container.get(stack[3]) }));
+  container.resolver(stack[3], () => ({ instance: container.get(stack[4]) }));
+
+  const err = assertThrows(
+    () => container.get(stack[0]),
+    UndefinedError,
+    `"instance" is undefined!
+resolve stack:
+  [0] "instance"
+  [1] Symbol(symbol)
+  [2] Something
+  [3] (anonymous class)
+  [4] "unknown"`,
+  ) as UndefinedError;
+  assertStrictEquals(err.target, stack[0]);
+  assertArrayEquals(err.resolveStack, stack);
 });

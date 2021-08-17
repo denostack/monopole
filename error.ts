@@ -1,21 +1,30 @@
 import { Name } from "./interface.ts";
 import { nameToString } from "./_utils.ts";
 
+function resolveStackToString(stack: Name<any>[]): string {
+  return stack.map((target, targetIndex) =>
+    `  [${targetIndex}] ${nameToString(target)}`
+  ).join("\n");
+}
+
 export class UndefinedError extends Error {
-  public constructor(
+  public resolveStack: Name<any>[];
+
+  constructor(
     public target: Name<any>,
-    public resolveStack: Name<any>[] = [],
+    beforeStack: Name<any>[] = [],
   ) {
-    super(`${nameToString(target)} is not defined!
-resolve stack: ${
-      resolveStack.map((target) => nameToString(target)).join(" -> ")
-    }`);
+    const resolveStack = [target, ...beforeStack];
+    super(`${nameToString(target)} is undefined!
+resolve stack:
+${resolveStackToString(resolveStack)}`);
+    this.resolveStack = resolveStack;
     this.name = "UndefinedError";
   }
 }
 
 export class FrozenError extends Error {
-  public constructor(
+  constructor(
     public target: Name<any>,
   ) {
     super(`${nameToString(target)} is already frozen.`);
