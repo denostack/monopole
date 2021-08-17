@@ -7,7 +7,7 @@ import {
 
 import { Container } from "./container.ts";
 import { Inject } from "./decorator.ts";
-import { UndefinedError } from "./error.ts";
+import { FrozenError, UndefinedError } from "./error.ts";
 
 Deno.test("predefined values", () => {
   const container = new Container();
@@ -197,31 +197,40 @@ Deno.test("freeze", () => {
   container.get(Driver2);
   container.get("alias");
 
-  assertThrows(
+  const error1 = assertThrows(
     () => container.delete("instance"),
-    Error,
+    FrozenError,
     '"instance" is already frozen.',
-  );
-  assertThrows(
+  ) as FrozenError;
+  assertStrictEquals(error1.target, "instance");
+
+  const error2 = assertThrows(
     () => container.delete("resolver"),
-    Error,
+    FrozenError,
     '"resolver" is already frozen.',
-  );
-  assertThrows(
+  ) as FrozenError;
+  assertStrictEquals(error2.target, "resolver");
+
+  const error3 = assertThrows(
     () => container.delete("driver1"),
-    Error,
+    FrozenError,
     '"driver1" is already frozen.',
-  );
-  assertThrows(
+  ) as FrozenError;
+  assertStrictEquals(error3.target, "driver1");
+
+  const error4 = assertThrows(
     () => container.delete(Driver2),
-    Error,
+    FrozenError,
     "Driver2 is already frozen.",
-  );
-  assertThrows(
+  ) as FrozenError;
+  assertStrictEquals(error4.target, Driver2);
+
+  const error5 = assertThrows(
     () => container.delete("alias"),
-    Error,
+    FrozenError,
     '"alias" is already frozen.',
-  );
+  ) as FrozenError;
+  assertStrictEquals(error5.target, "alias");
 });
 
 Deno.test("undefined error", () => {

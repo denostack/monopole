@@ -5,8 +5,7 @@ import {
   ProviderDescriptor,
 } from "./interface.ts";
 import { metadata, MetadataInjectProp } from "./metadata.ts";
-import { UndefinedError } from "./error.ts";
-import { nameToString } from "./_utils.ts";
+import { FrozenError, UndefinedError } from "./error.ts";
 
 export class Container implements ProviderDescriptor {
   _booted: boolean;
@@ -113,7 +112,7 @@ export class Container implements ProviderDescriptor {
   delete(...names: Name<any>[]): void {
     for (const name of names) {
       if (this._freezes.has(name)) {
-        throw new Error(`${nameToString(name)} is already frozen.`);
+        throw new FrozenError(name);
       }
 
       this._instances.delete(name);
@@ -125,7 +124,7 @@ export class Container implements ProviderDescriptor {
 
   register(provider: Provider): void {
     if (this._booted) {
-      throw new Error("ㅊannot register a provider after booting.");
+      throw new Error("Cannot register a provider after booting.");
     }
     this._providers.push(provider);
   }

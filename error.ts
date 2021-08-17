@@ -13,3 +13,12 @@ resolve stack: ${
     this.name = "UndefinedError";
   }
 }
+
+export class FrozenError extends Error {
+  public constructor(
+    public target: Name<any>,
+  ) {
+    super(`${nameToString(target)} is already frozen.`);
+    this.name = "FrozenError";
+  }
+}
