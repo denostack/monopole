@@ -7,9 +7,13 @@ import {
 import { metadata, MetadataInjectProp } from "./metadata.ts";
 import { FrozenError, UndefinedError } from "./error.ts";
 
-export class Container implements ProviderDescriptor {
-  _booted: boolean;
+type ContainerType = "resolver" | "bind" | "instance";
 
+export class Container implements ProviderDescriptor {
+  _boot: Promise<void> | null;
+  _close: Promise<void> | null;
+
+  _defs: Map<any, ContainerType>;
   _instances: Map<any, any>;
   _resolvers: Map<any, () => any>;
   _binds: Map<any, ConstructType<any>>;
@@ -21,7 +25,11 @@ export class Container implements ProviderDescriptor {
   _providers: Provider[];
 
   constructor() {
-    this._booted = false;
+    this._boot = null;
+    this._close = null;
+    this._defs = new Map<any, ContainerType>([
+      [Container, "instance"],
+    ]);
     this._instances = new Map<any, any>([
       [Container, this],
     ]);
@@ -39,12 +47,14 @@ export class Container implements ProviderDescriptor {
 
   instance<T>(name: Name<T>, value: T): this {
     this.delete(name);
+    this._defs.set(name, "instance");
     this._instances.set(name, value);
     return this;
   }
 
   resolver<T>(name: Name<T>, resolver: () => T): this {
     this.delete(name);
+    this._defs.set(name, "resolver");
     this._resolvers.set(name, resolver);
     return this;
   }
@@ -56,6 +66,7 @@ export class Container implements ProviderDescriptor {
     constructor?: ConstructType<T>,
   ): this {
     this.delete(name);
+    this._defs.set(name, "bind");
     this._binds.set(name, constructor ?? name as ConstructType<T>);
     return this;
   }
@@ -134,31 +145,55 @@ export class Container implements ProviderDescriptor {
   }
 
   register(provider: Provider): void {
-    if (this._booted) {
+    if (this._boot) {
       throw new Error("Cannot register a provider after booting.");
     }
     this._providers.push(provider);
   }
 
-  boot(forced = false): this {
-    if (this._booted && !forced) {
-      return this;
+  boot(forced = false): Promise<void> {
+    if (this._boot && !forced) {
+      return this._boot;
     }
 
-    this._providers.map((p) => p.register(this));
-    this._providers.filter((p) => p.boot).map((p) => p.boot!(this));
+    this._boot = Promise.all(this._providers.map((p) => p.register(this)))
+      .then(() =>
+        Promise.all(
+          this._providers.filter((p) => p.boot).map((p) => p.boot!(this)),
+        )
+      )
+      .then(() =>
+        Promise.all([...this._defs.keys()].map((name) => {
+          // resolve promise value
+          return Promise.resolve(this.get(name)).then((instance) =>
+            this._instances.set(name, instance)
+          );
+        }))
+      )
+      .then(() => Promise.resolve());
 
-    this._booted = true;
-
-    return this;
+    return this._boot;
   }
 
-  close(): this {
-    if (this._booted) {
-      this._providers.filter((p) => p.close).map((p) => p.close!(this));
+  close(): Promise<void> {
+    if (this._close) {
+      return this._close;
     }
-    this._booted = false;
-    return this;
+    if (this._boot) {
+      this._close = this._boot
+        .then(() =>
+          Promise.all(
+            this._providers.filter((p) => p.close).map((p) => p.close!(this)),
+          )
+        )
+        .then(() => {
+          this._close = null;
+          this._boot = null;
+        });
+
+      return this._close;
+    }
+    return Promise.resolve();
   }
 
   _inject<T>(instance: T, metaInjects: MetadataInjectProp[]): T {

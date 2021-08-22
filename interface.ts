@@ -1,6 +1,7 @@
 export type Name<T> = ConstructType<T> | string | symbol;
 
 export type ConstructType<T> = ({ new (): T; readonly prototype: T });
+export type MaybePromise<T> = T | Promise<T>;
 
 export interface ProviderDescriptor {
   instance<T>(name: Name<T>, value: T): this;
@@ -17,6 +18,6 @@ export interface ProviderDescriptor {
 
 export interface Provider {
   register(app: ProviderDescriptor): void;
-  boot?(app: ProviderDescriptor): void;
-  close?(app: ProviderDescriptor): void;
+  boot?(app: ProviderDescriptor): MaybePromise<void>;
+  close?(app: ProviderDescriptor): MaybePromise<void>;
 }

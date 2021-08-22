@@ -294,7 +294,7 @@ Deno.test("run create (factory)", () => {
   assertNotStrictEquals(container.create(Controller), controller);
 });
 
-Deno.test("boot", () => {
+Deno.test("boot", async () => {
   const container = new Container();
 
   let countCallRegister = 0;
@@ -309,15 +309,15 @@ Deno.test("boot", () => {
     },
   });
 
-  container.boot();
-  container.boot();
-  container.boot();
+  await container.boot();
+  await container.boot();
+  await container.boot();
 
   assertEquals(countCallRegister, 1);
   assertEquals(countCallBoot, 1);
 });
 
-Deno.test("boot force", () => {
+Deno.test("boot force", async () => {
   const container = new Container();
 
   let countCallRegister = 0;
@@ -332,17 +332,23 @@ Deno.test("boot force", () => {
     },
   });
 
-  container.boot();
-  container.boot();
-  container.boot();
+  await container.boot();
+  await container.boot();
+  await container.boot();
 
-  container.boot(true);
+  await Promise.all([
+    container.boot(),
+    container.boot(),
+    container.boot(),
+  ]);
+
+  await container.boot(true);
 
   assertEquals(countCallRegister, 2);
   assertEquals(countCallBoot, 2);
 });
 
-Deno.test("close", () => {
+Deno.test("close", async () => {
   const container = new Container();
 
   let countCallRegister = 0;
@@ -361,14 +367,38 @@ Deno.test("close", () => {
     },
   });
 
-  container.boot();
-  container.close(); // reset
+  await container.boot();
+  await container.close(); // reset
 
-  container.boot();
+  await container.boot();
 
   assertEquals(countCallRegister, 2);
   assertEquals(countCallBoot, 2);
   assertEquals(countCallClose, 1);
+});
+
+Deno.test("boot with promise", async () => {
+  const container = new Container();
+
+  container.instance("instance", Promise.resolve({ name: "instance" }));
+  container.resolver("resolver", () => {
+    return Promise.resolve({ name: "resolver" });
+  });
+
+  const promiseInstance = container.get("instance");
+  const promiseResolver = container.get("resolver");
+
+  assertEquals(promiseInstance instanceof Promise, true);
+  assertEquals(promiseResolver instanceof Promise, true);
+
+  // after boot, resolve the promise
+  await container.boot();
+
+  assertEquals(container.get("instance"), { name: "instance" });
+  assertEquals(container.get("resolver"), { name: "resolver" });
+
+  assertStrictEquals(container.get("instance"), await promiseInstance);
+  assertStrictEquals(container.get("resolver"), await promiseResolver);
 });
 
 Deno.test("resolve circular dependency bind", () => {
