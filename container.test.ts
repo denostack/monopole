@@ -6,7 +6,7 @@ import {
 } from "https://deno.land/std@0.92.0/testing/asserts.ts";
 
 import { Container } from "./container.ts";
-import { Inject } from "./decorator.ts";
+import { Inject } from "./decorator/inject.ts";
 import { FrozenError, UndefinedError } from "./error.ts";
 
 function assertArrayEquals(actual: any[], expected: any[]) {

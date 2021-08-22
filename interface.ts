@@ -1,5 +1,6 @@
-export type ConstructType<T> = new (...args: any[]) => T;
 export type Name<T> = ConstructType<T> | string | symbol;
+
+export type ConstructType<T> = ({ new (): T; readonly prototype: T });
 
 export interface ProviderDescriptor {
   instance<T>(name: Name<T>, value: T): this;
