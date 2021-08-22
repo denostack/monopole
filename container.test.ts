@@ -133,12 +133,14 @@ Deno.test("has", () => {
   container.bind("driver1", Driver1);
   container.bind(Driver2);
   container.alias("alias1", "instance");
+  container.alias("alias2", "broken");
 
   assertEquals(container.has("instance"), true);
   assertEquals(container.has("resolver"), true);
   assertEquals(container.has("driver1"), true);
   assertEquals(container.has(Driver2), true);
   assertEquals(container.has("alias1"), true);
+  assertEquals(container.has("alias2"), false);
 
   assertEquals(container.has("unknown"), false);
 });

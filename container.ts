@@ -125,10 +125,12 @@ export class Container implements ProviderDescriptor {
   }
 
   has<T>(name: Name<T>): boolean {
+    while (this._aliases.has(name)) {
+      name = this._aliases.get(name);
+    }
     return this._instances.has(name) ||
       this._resolvers.has(name) ||
-      this._binds.has(name) ||
-      this._aliases.has(name);
+      this._binds.has(name);
   }
 
   delete(...names: Name<any>[]): void {
