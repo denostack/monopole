@@ -1,30 +1,40 @@
-import { ContainerFluent } from "./container_fluent.ts";
-import { MaybePromise } from "./types.ts";
+import { chain, type MaybePromise } from "./maybe_promise.ts";
+export class InstanceResolver<T> {
+  resolver: () => MaybePromise<T>;
+  resolved?: T;
+  singleton = false;
 
-export class InstanceResolver<T> implements ContainerFluent<T> {
-  _resolver: () => MaybePromise<T>;
-  _afterHandlers = [] as ((instance: T) => void)[];
+  afterHandlers = [] as ((instance: T) => MaybePromise<void>)[];
 
   constructor(
     resolver: () => MaybePromise<T>,
   ) {
-    this._resolver = resolver;
+    this.resolver = resolver;
   }
 
-  after(handler: (instance: T) => void): this {
-    this._afterHandlers.push(handler);
+  after(handler: (instance: T) => MaybePromise<void>): this {
+    this.afterHandlers.push(handler);
     return this;
   }
 
   resolve(): MaybePromise<T> {
-    const resolved = this._resolver();
-    if (resolved instanceof Promise) {
-      return resolved.then((value) => {
-        this._afterHandlers.forEach((handler) => handler(value));
-        return value;
-      }) as Promise<T>;
+    if (this.resolved) {
+      return this.resolved;
     }
-    this._afterHandlers.forEach((handler) => handler(resolved));
-    return resolved;
+    return chain(this.resolver())
+      .next((value) => {
+        if (this.singleton) {
+          this.resolved = value;
+        }
+        return value;
+      })
+      .next((value) => {
+        let c = chain();
+        for (const handler of this.afterHandlers) {
+          c = c.next(() => handler(value));
+        }
+        return c.next(() => value).value();
+      })
+      .value();
   }
 }
