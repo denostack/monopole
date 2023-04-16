@@ -2,6 +2,7 @@ import { chain, type MaybePromise } from "./maybe_promise.ts";
 export class InstanceResolver<T> {
   resolver: () => MaybePromise<T>;
   resolved?: T;
+  resolvedPromise?: Promise<T>;
   singleton = false;
 
   afterHandlers = [] as ((instance: T) => MaybePromise<void>)[];
@@ -18,10 +19,14 @@ export class InstanceResolver<T> {
   }
 
   resolve(): MaybePromise<T> {
+    if (this.resolvedPromise) {
+      return this.resolvedPromise;
+    }
     if (this.resolved) {
       return this.resolved;
     }
-    return chain(this.resolver())
+
+    const value = chain(this.resolver())
       .next((value) => {
         if (this.singleton) {
           this.resolved = value;
@@ -35,6 +40,16 @@ export class InstanceResolver<T> {
         }
         return c.next(() => value).value();
       })
+      .next((value) => {
+        this.resolvedPromise = undefined;
+        return value;
+      })
       .value();
+
+    if (this.singleton && value instanceof Promise) {
+      this.resolvedPromise = value;
+    }
+
+    return value;
   }
 }
