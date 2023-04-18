@@ -1,17 +1,19 @@
-import { Name } from "./interface.ts";
+import { ServiceIdentifier } from "./service_identifier.ts";
+import { ConstructType } from "./types.ts";
 
-export interface MetadataInjectProp {
-  target: any;
-  property: PropertyKey;
-  name: Name<any>;
-  resolver: ((instance: any) => any) | null;
+export interface MetadataInjectProp<T> {
+  target: ConstructType<T>;
+  property: keyof T;
+  id: ServiceIdentifier<T>;
+  transformer?: (instance: T) => unknown;
 }
 
 export const metadata = {
-  inject: new WeakMap<any, MetadataInjectProp[]>(),
+  // deno-lint-ignore ban-types
+  inject: new WeakMap<object, MetadataInjectProp<unknown>[]>(),
 };
 
-// internal only
-export function _clearMetadata() {
+/* @internal for test */
+export function clearMetadata() {
   metadata.inject = new WeakMap();
 }

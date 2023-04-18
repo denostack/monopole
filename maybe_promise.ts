@@ -25,3 +25,11 @@ export function chain(
     },
   };
 }
+
+export function all<T>(values: MaybePromise<T>[]): MaybePromiseChain<T[]> {
+  if (values.some((value) => value instanceof Promise)) {
+    return chain(Promise.all(values));
+  } else {
+    return chain(values as T[]);
+  }
+}

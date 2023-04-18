@@ -1,44 +1,39 @@
-import { Name } from "../interface.ts";
-import { metadata } from "../metadata.ts";
+import { metadata, MetadataInjectProp } from "../metadata.ts";
+import { ServiceIdentifier } from "../service_identifier.ts";
+import { ConstructType } from "../types.ts";
 
-export interface InjectOptions<T> {
-  transformer?: (instance: T) => any;
+// TODO Ecma Proposal Decorators
+export function Inject<T>(
+  id: ServiceIdentifier<T>,
+  transformer?: (instance: T) => unknown,
+): PropertyDecorator {
+  // deno-lint-ignore ban-types
+  return (target: Object, property: string | symbol) => {
+    defineInject(
+      target.constructor as ConstructType<T>,
+      property as keyof T,
+      id,
+      transformer,
+    );
+  };
 }
 
-export function Inject<T>(name: Name<T>): PropertyDecorator;
-export function Inject<T>(
-  name: Name<T>,
-  transformer: (instance: T) => any,
-): PropertyDecorator;
-export function Inject<T>(
-  name: Name<T>,
-  options: InjectOptions<T>,
-): PropertyDecorator;
-export function Inject<T>(
-  name: Name<T>,
-  trasformerOrOptions?: ((instance: T) => any) | InjectOptions<T>,
+export function defineInject<T>(
+  target: ConstructType<T>,
+  property: keyof T,
+  id: ServiceIdentifier<T>,
+  transformer?: (instance: T) => unknown,
 ) {
-  let resolver: ((instance: T) => any) | null = null;
-  if (typeof trasformerOrOptions === "function") {
-    resolver = trasformerOrOptions;
-  } else if (typeof trasformerOrOptions === "object") {
-    resolver = trasformerOrOptions.transformer ?? null;
-  }
   const metaInject = metadata.inject;
-
-  return (target: any, property: string | symbol) => {
-    target = (property ? target.constructor : target);
-    let injectProps = metaInject.get(target);
-    if (!injectProps) {
-      injectProps = [];
-      metaInject.set(target, injectProps);
-    }
-
-    injectProps.push({
-      target,
-      property,
-      name,
-      resolver,
-    });
-  };
+  let injectProps = metaInject.get(target);
+  if (!injectProps) {
+    injectProps = [];
+    metaInject.set(target, injectProps);
+  }
+  injectProps.push({
+    target,
+    property,
+    id,
+    transformer,
+  } as MetadataInjectProp<unknown>);
 }
