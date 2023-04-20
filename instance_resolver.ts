@@ -18,6 +18,11 @@ export class InstanceResolver<T> {
     return this;
   }
 
+  reset(): void {
+    this.resolved = undefined;
+    this.resolvedPromise = undefined;
+  }
+
   resolve(): MaybePromise<T> {
     if (this.resolvedPromise) {
       return this.resolvedPromise;

@@ -1,7 +1,9 @@
+import { MaybePromise } from "./maybe_promise.ts";
+import { Module, ModuleDescriptor } from "./module.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
-import { ConstructType, MaybePromise } from "./types.ts";
+import { ConstructType } from "./types.ts";
 
-export interface Container {
+export interface Container extends ModuleDescriptor {
   value<T>(
     id: ServiceIdentifier<T>,
     value: MaybePromise<T>,
@@ -21,4 +23,10 @@ export interface Container {
 
   create<T>(ctor: ConstructType<T>): MaybePromise<T>;
   has<T>(id: ServiceIdentifier<T>): boolean;
+
+  get<T>(id: ServiceIdentifier<T>): T;
+
+  register(module: Module): void;
+  boot(): MaybePromise<void>;
+  close(): MaybePromise<void>;
 }

@@ -1,22 +1,29 @@
 import { Container } from "./container.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
+import { FrozenError } from "./error/frozen_error.ts";
 import { InstanceResolver } from "./instance_resolver.ts";
-import { all, chain } from "./maybe_promise.ts";
+import { all, chain, MaybePromise } from "./maybe_promise.ts";
 import { metadata, MetadataInjectProp } from "./metadata.ts";
+import { Module } from "./module.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
-import { ConstructType, MaybePromise } from "./types.ts";
+import { ConstructType } from "./types.ts";
 
 export class ContainerImpl implements Container {
-  // deno-lint-ignore no-explicit-any
-  _resolvers = new Map<ServiceIdentifier<any>, InstanceResolver<any>>();
-  // deno-lint-ignore no-explicit-any
-  _aliases = new Map<ServiceIdentifier<any>, ServiceIdentifier<any>>();
+  _modules = new Set<Module>();
+
+  _resolvers = new Map<ServiceIdentifier<unknown>, InstanceResolver<unknown>>();
+  _aliases = new Map<ServiceIdentifier<unknown>, ServiceIdentifier<unknown>>();
+
+  _booted = false;
+  _booting?: MaybePromise<void>; // booting promise (promise lock)
+  _closing?: MaybePromise<void>; // closing promise (promise lock)
 
   value<T>(
     id: ServiceIdentifier<T>,
     value: MaybePromise<T>,
   ): void {
-    const resolver = new InstanceResolver(() => value);
+    this.delete(id);
+    const resolver = new InstanceResolver<unknown>(() => value);
     resolver.singleton = true;
     this._resolvers.set(id, resolver);
   }
@@ -25,7 +32,8 @@ export class ContainerImpl implements Container {
     id: ServiceIdentifier<T>,
     resolveHandler: () => MaybePromise<T>,
   ): void {
-    const resolver = new InstanceResolver(resolveHandler);
+    this.delete(id);
+    const resolver = new InstanceResolver<unknown>(resolveHandler);
     resolver.singleton = true;
     this._resolvers.set(id, resolver);
   }
@@ -39,8 +47,9 @@ export class ContainerImpl implements Container {
     id: ConstructType<T> | ServiceIdentifier<T>,
     constructor?: ConstructType<T>,
   ): void {
+    this.delete(id);
     const Ctor = constructor ?? id as ConstructType<T>;
-    const resolver = new InstanceResolver(() => {
+    const resolver = new InstanceResolver<unknown>(() => {
       return new Ctor();
     });
     resolver.singleton = true;
@@ -95,12 +104,82 @@ export class ContainerImpl implements Container {
     throw new UndefinedError(id, aliasStack);
   }
 
+  get<T>(id: ServiceIdentifier<T>): T {
+    const resolver = this._resolvers.get(id);
+    if (resolver?.resolved) {
+      return resolver.resolved as T;
+    }
+    throw new UndefinedError(id, []);
+  }
+
   has<T>(id: ServiceIdentifier<T>): boolean {
     let aliasId: ServiceIdentifier<unknown> | undefined = id;
     while ((aliasId = this._aliases.get(id))) {
       id = aliasId as ServiceIdentifier<T>;
     }
     return this._resolvers.has(id);
+  }
+
+  register(module: Module) {
+    this._modules.add(module);
+  }
+
+  delete(id: ServiceIdentifier<unknown>): void {
+    const resolver = this._resolvers.get(id);
+    if (resolver?.resolved || resolver?.resolvedPromise) {
+      throw new FrozenError(id);
+    }
+    this._resolvers.delete(id);
+    this._aliases.delete(id);
+  }
+
+  boot(): MaybePromise<void> {
+    if (this._booted) {
+      return;
+    }
+    if (this._booting) {
+      return this._booting;
+    }
+
+    const modules = [...this._modules];
+
+    modules.forEach((m) => m.configure?.(this));
+
+    this._booting = all(modules.map((m) => m.boot?.(this)))
+      .next(() =>
+        all(
+          [...this._resolvers.values()].map((value) => value.resolve()),
+        ).value()
+      )
+      .next(() => {
+        this._booted = true;
+      })
+      .value();
+
+    return this._booting;
+  }
+
+  close(): MaybePromise<void> {
+    if (!this._booted) {
+      return;
+    }
+    if (this._closing) {
+      return this._closing;
+    }
+
+    const modules = [...this._modules];
+
+    this._closing = chain(this._booting)
+      .next(() => all(modules.map((m) => m.close?.(this))))
+      .next(() => [...this._resolvers.values()].map((value) => value.reset()))
+      .next(() => {
+        delete this._closing;
+        delete this._booting;
+        this._booted = false;
+      })
+      .value();
+
+    return this._closing;
   }
 
   _injectProperties<T>(

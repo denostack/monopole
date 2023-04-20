@@ -3,10 +3,12 @@ import {
   assertInstanceOf,
   assertNotStrictEquals,
   assertStrictEquals,
+  fail,
 } from "testing/asserts.ts";
 
 import { ContainerImpl } from "./container_impl.ts";
 import { Inject } from "./decorator/inject.ts";
+import { UndefinedError } from "./error/undefined_error.ts";
 
 Deno.test("ContainerImpl, define value", () => {
   class Foo {
@@ -237,4 +239,94 @@ Deno.test("ContainerImpl, resolve self dependency bind", () => {
   assertInstanceOf(value, SelfDependency);
 
   assertStrictEquals(value.self, value);
+});
+
+Deno.test("ContainerImpl, boot", async () => {
+  const container = new ContainerImpl();
+
+  let countCallConfigure = 0;
+  let countCallBoot = 0;
+
+  container.register({
+    configure() {
+      countCallConfigure++;
+    },
+    boot() {
+      countCallBoot++;
+    },
+  });
+
+  container.boot();
+  container.boot();
+  await container.boot();
+
+  assertEquals(countCallConfigure, 1);
+  assertEquals(countCallBoot, 1);
+});
+
+Deno.test("ContainerImpl, close", async () => {
+  const container = new ContainerImpl();
+
+  let countCallConfigure = 0;
+  let countCallBoot = 0;
+  let countCallClose = 0;
+
+  container.register({
+    configure() {
+      countCallConfigure++;
+    },
+    boot() {
+      countCallBoot++;
+    },
+    close() {
+      countCallClose++;
+    },
+  });
+
+  await container.boot();
+  await container.close(); // reset
+
+  await container.boot();
+
+  assertEquals(countCallConfigure, 2);
+  assertEquals(countCallBoot, 2);
+  assertEquals(countCallClose, 1);
+});
+
+Deno.test("ContainerImpl, boot with promise", async () => {
+  const container = new ContainerImpl();
+
+  container.value("instance", Promise.resolve({ name: "instance" }));
+  container.resolver("resolver", () => {
+    return Promise.resolve({ name: "resolver" });
+  });
+
+  const promiseInstance = container.resolve("instance");
+  const promiseResolver = container.resolve("resolver");
+
+  assertEquals(promiseInstance instanceof Promise, true);
+  assertEquals(promiseResolver instanceof Promise, true);
+
+  await container.boot();
+
+  assertEquals(container.get("instance"), { name: "instance" });
+  assertEquals(container.get("resolver"), { name: "resolver" });
+
+  assertStrictEquals(container.get("instance"), await promiseInstance);
+  assertStrictEquals(container.get("resolver"), await promiseResolver);
+});
+
+Deno.test("ContainerImpl, undefined error", async () => {
+  const container = new ContainerImpl();
+
+  try {
+    await container.resolve("unknown");
+    fail();
+  } catch (e) {
+    assertInstanceOf(e, UndefinedError);
+    assertEquals(
+      e.message,
+      '"unknown" is undefined!\nresolve stack:\n  [0] "unknown"',
+    );
+  }
 });
