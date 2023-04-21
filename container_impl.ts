@@ -8,7 +8,7 @@ import { Module } from "./module.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
 import { ConstructType } from "./types.ts";
 
-export class ContainerImpl implements Container {
+export class ContainerImpl extends Container {
   _modules = new Set<Module>();
 
   _resolvers = new Map<ServiceIdentifier<unknown>, InstanceResolver<unknown>>();
@@ -17,6 +17,12 @@ export class ContainerImpl implements Container {
   _booted = false;
   _booting?: MaybePromise<void>; // booting promise (promise lock)
   _closing?: MaybePromise<void>; // closing promise (promise lock)
+
+  constructor() {
+    super();
+    this.value(Container, this);
+    this.value("@", this);
+  }
 
   value<T>(
     id: ServiceIdentifier<T>,

@@ -11,13 +11,7 @@ import { ContainerImpl } from "./container_impl.ts";
 import { Inject } from "./decorator/inject.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
-
-// function assertArrayEquals(actual: unknown[], expected: unknown[]) {
-//   assertEquals(actual.length, expected.length);
-//   actual.forEach((item, itemIndex) => {
-//     assertStrictEquals(item, expected[itemIndex]);
-//   });
-// }
+import { Container } from "./container.ts";
 
 Deno.test("ContainerImpl, define value", () => {
   class Foo {
@@ -500,4 +494,11 @@ Deno.test("ContainerImpl, UndefinedError (many stack)", () => {
       { id: "unknown" },
     ]);
   }
+});
+
+Deno.test("ContainerImpl, predefined values", () => {
+  const container = new ContainerImpl();
+
+  assertStrictEquals(container.resolve(Container), container);
+  assertStrictEquals(container.resolve("@"), container);
 });
