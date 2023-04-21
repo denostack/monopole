@@ -3,12 +3,21 @@ import {
   assertInstanceOf,
   assertNotStrictEquals,
   assertStrictEquals,
+  assertThrows,
   fail,
 } from "testing/asserts.ts";
 
 import { ContainerImpl } from "./container_impl.ts";
 import { Inject } from "./decorator/inject.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
+import { ServiceIdentifier } from "./service_identifier.ts";
+
+// function assertArrayEquals(actual: unknown[], expected: unknown[]) {
+//   assertEquals(actual.length, expected.length);
+//   actual.forEach((item, itemIndex) => {
+//     assertStrictEquals(item, expected[itemIndex]);
+//   });
+// }
 
 Deno.test("ContainerImpl, define value", () => {
   class Foo {
@@ -316,17 +325,179 @@ Deno.test("ContainerImpl, boot with promise", async () => {
   assertStrictEquals(container.get("resolver"), await promiseResolver);
 });
 
-Deno.test("ContainerImpl, undefined error", async () => {
+Deno.test("ContainerImpl, UndefinedError", async (t) => {
   const container = new ContainerImpl();
 
+  class Something {}
+
+  const cases: {
+    name: string;
+    id: ServiceIdentifier<unknown>;
+    errorMessage: string;
+    resolveStackString: string;
+  }[] = [
+    {
+      name: "string",
+      id: "instance",
+      errorMessage: `"instance" is undefined!`,
+      resolveStackString: `resolve stack:
+  [0] "instance"`,
+    },
+    {
+      name: "symbol",
+      id: Symbol("symbol"),
+      errorMessage: `Symbol(symbol) is undefined!`,
+      resolveStackString: `resolve stack:
+  [0] Symbol(symbol)`,
+    },
+    {
+      name: "class",
+      id: Something,
+      errorMessage: `[class Something] is undefined!`,
+      resolveStackString: `resolve stack:
+  [0] [class Something]`,
+    },
+    {
+      name: "unknown class",
+      id: (() => class {})(),
+      errorMessage: `[anonymous class] is undefined!`,
+      resolveStackString: `resolve stack:
+  [0] [anonymous class]`,
+    },
+  ];
+
+  await Promise.all(
+    cases.map(({ name, id, errorMessage, resolveStackString }) => {
+      return t.step({
+        name,
+        fn: () => {
+          const error = assertThrows(
+            () => container.resolve(id),
+            UndefinedError,
+            errorMessage,
+          ) as UndefinedError;
+          assertStrictEquals(error.target, id);
+          assertEquals(error.resolveStack, [{ id: id }]);
+          assertEquals(error.resolveStack.toString(), resolveStackString);
+        },
+        sanitizeOps: false,
+        sanitizeResources: false,
+        sanitizeExit: false,
+      });
+    }),
+  );
+});
+
+Deno.test("ContainerImpl, UndefinedError with alias", () => {
+  class Something {}
+
+  const container = new ContainerImpl();
+
+  container.resolver(
+    "instance",
+    () => ({ instance: container.resolve("alias1") }),
+  );
+  container.alias("alias1", "alias2");
+  container.alias("alias2", Something);
+
+  {
+    try {
+      container.resolve("alias2");
+      fail();
+    } catch (e) {
+      assertInstanceOf(e, UndefinedError);
+      assertEquals(
+        e.message,
+        `[class Something] is undefined!`,
+      );
+      assertEquals(e.resolveStack, [
+        { id: "alias2", alias: true },
+        { id: Something },
+      ]);
+      assertEquals(
+        e.resolveStack.toString(),
+        `resolve stack:
+  [0] (alias) "alias2"
+  [1] [class Something]`,
+      );
+    }
+  }
+
+  {
+    try {
+      container.resolve("instance");
+      fail();
+    } catch (e) {
+      assertInstanceOf(e, UndefinedError);
+      assertEquals(
+        e.message,
+        `"instance" is undefined!`,
+      );
+      assertEquals(
+        e.resolveStack.toString(),
+        `resolve stack:
+  [0] "instance"
+  [1] (alias) "alias1"
+  [2] (alias) "alias2"
+  [3] [class Something]`,
+      );
+      assertEquals(e.resolveStack, [
+        { id: "instance" },
+        { id: "alias1", alias: true },
+        { id: "alias2", alias: true },
+        { id: Something },
+      ]);
+    }
+  }
+});
+
+Deno.test("ContainerImpl, UndefinedError (many stack)", () => {
+  class Something {}
+  const symbol = Symbol("symbol");
+  const anonymousClass = (() => class {})();
+
+  const container = new ContainerImpl();
+
+  container.resolver(
+    "instance",
+    () => ({ instance: container.resolve(symbol) }),
+  );
+  container.resolver(
+    symbol,
+    () => ({ instance: container.resolve(Something) }),
+  );
+  container.resolver(
+    Something,
+    () => ({ instance: container.resolve(anonymousClass) }),
+  );
+  container.resolver(
+    anonymousClass,
+    () => ({ instance: container.resolve("unknown") }),
+  );
+
   try {
-    await container.resolve("unknown");
-    fail();
+    container.resolve("instance");
   } catch (e) {
     assertInstanceOf(e, UndefinedError);
     assertEquals(
       e.message,
-      '"unknown" is undefined!\nresolve stack:\n  [0] "unknown"',
+      `"instance" is undefined!`,
     );
+    assertEquals(
+      e.resolveStack.toString(),
+      `resolve stack:
+  [0] "instance"
+  [1] Symbol(symbol)
+  [2] [class Something]
+  [3] [anonymous class]
+  [4] "unknown"`,
+    );
+    assertEquals(e.resolveStack, [
+      { id: "instance" },
+      { id: symbol },
+      { id: Something },
+      { id: anonymousClass },
+      { id: "unknown" },
+    ]);
   }
 });

@@ -6,31 +6,38 @@ export interface StackItem {
 }
 
 function resolveStackToString(stack: StackItem[]): string {
-  return stack.map((item, itemIndex) => {
+  let result = "resolve stack:";
+  for (const [itemIndex, item] of stack.entries()) {
     if (item.alias) {
-      return `  [${itemIndex}] (alias) ${toString(item.id)}`;
+      result += `\n  [${itemIndex}] (alias) ${toString(item.id)}`;
+    } else {
+      result += `\n  [${itemIndex}] ${toString(item.id)}`;
     }
-    return `  [${itemIndex}] ${toString(item.id)}`;
-  }).join("\n");
+  }
+  return result;
 }
 
 export class UndefinedError extends Error {
-  resolveStack: StackItem[];
+  resolveStack: StackItem[] & { toString(): string };
 
   constructor(
     public target: ServiceIdentifier<unknown>,
     aliasStack: ServiceIdentifier<unknown>[],
     beforeStack: StackItem[] = [],
   ) {
-    const resolveStack: StackItem[] = [
+    super(`${toString(target)} is undefined!`);
+    this.name = "UndefinedError";
+    this.resolveStack = new Proxy([
       ...aliasStack.map((alias) => ({ id: alias, alias: true as const })),
       { id: target },
       ...beforeStack,
-    ];
-    super(`${toString(target)} is undefined!
-resolve stack:
-${resolveStackToString(resolveStack)}`);
-    this.resolveStack = resolveStack;
-    this.name = "UndefinedError";
+    ], {
+      get(target, prop) {
+        if (prop === "toString") {
+          return () => resolveStackToString(target);
+        }
+        return Reflect.get(target, prop);
+      },
+    });
   }
 }

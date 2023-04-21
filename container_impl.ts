@@ -84,7 +84,7 @@ export class ContainerImpl implements Container {
     const aliasStack: ServiceIdentifier<unknown>[] = [];
     let aliasId: ServiceIdentifier<unknown> | undefined = id;
     while ((aliasId = this._aliases.get(id))) {
-      aliasStack.push(aliasId);
+      aliasStack.push(id);
       id = aliasId as ServiceIdentifier<T>;
     }
 
