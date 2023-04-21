@@ -7,12 +7,15 @@ import { metadata, MetadataInjectProp } from "./metadata.ts";
 import { Module } from "./module.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
 import { ConstructType } from "./types.ts";
+import { ContainerFluent } from "./container_fluent.ts";
 
 export class ContainerImpl extends Container {
   _modules = new Set<Module>();
 
-  _resolvers = new Map<ServiceIdentifier<unknown>, InstanceResolver<unknown>>();
-  _aliases = new Map<ServiceIdentifier<unknown>, ServiceIdentifier<unknown>>();
+  // deno-lint-ignore no-explicit-any
+  _resolvers = new Map<ServiceIdentifier<any>, InstanceResolver<any>>();
+  // deno-lint-ignore no-explicit-any
+  _aliases = new Map<ServiceIdentifier<any>, ServiceIdentifier<any>>();
 
   _booted = false;
   _booting?: MaybePromise<void>; // booting promise (promise lock)
@@ -29,36 +32,34 @@ export class ContainerImpl extends Container {
     value: MaybePromise<T>,
   ): void {
     this.delete(id);
-    const resolver = new InstanceResolver<unknown>(() => value);
-    resolver.singleton = true;
+    const resolver = new InstanceResolver(() => value);
     this._resolvers.set(id, resolver);
   }
 
   resolver<T>(
     id: ServiceIdentifier<T>,
     resolveHandler: () => MaybePromise<T>,
-  ): void {
+  ): ContainerFluent<T> {
     this.delete(id);
-    const resolver = new InstanceResolver<unknown>(resolveHandler);
-    resolver.singleton = true;
+    const resolver = new InstanceResolver(resolveHandler);
     this._resolvers.set(id, resolver);
+    return resolver;
   }
 
-  bind<T>(constructor: ConstructType<T>): void;
+  bind<T>(constructor: ConstructType<T>): ContainerFluent<T>;
   bind<T>(
     id: ServiceIdentifier<T>,
     constructor: ConstructType<T>,
-  ): void;
+  ): ContainerFluent<T>;
   bind<T>(
     id: ConstructType<T> | ServiceIdentifier<T>,
     constructor?: ConstructType<T>,
-  ): void {
+  ): ContainerFluent<T> {
     this.delete(id);
     const Ctor = constructor ?? id as ConstructType<T>;
-    const resolver = new InstanceResolver<unknown>(() => {
+    const resolver = new InstanceResolver(() => {
       return new Ctor();
     });
-    resolver.singleton = true;
     resolver.after((value) => {
       return this._injectProperties(
         value,
@@ -66,6 +67,7 @@ export class ContainerImpl extends Container {
       );
     });
     this._resolvers.set(id, resolver);
+    return resolver;
   }
 
   alias(

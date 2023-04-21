@@ -7,11 +7,12 @@ import {
   fail,
 } from "testing/asserts.ts";
 
+import { Container } from "./container.ts";
 import { ContainerImpl } from "./container_impl.ts";
 import { Inject } from "./decorator/inject.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
-import { Container } from "./container.ts";
+import { Lifetime } from "./types.ts";
 
 Deno.test("ContainerImpl, define value", () => {
   class Foo {
@@ -501,4 +502,52 @@ Deno.test("ContainerImpl, predefined values", () => {
 
   assertStrictEquals(container.resolve(Container), container);
   assertStrictEquals(container.resolve("@"), container);
+});
+
+Deno.test("ContainerImpl, lifetime transient", () => {
+  class BindClass {}
+  class ResolveClass {}
+
+  const container = new ContainerImpl();
+
+  container.bind(BindClass).scope(Lifetime.Transient);
+  container.resolver(ResolveClass, () => new ResolveClass()).scope(
+    Lifetime.Transient,
+  );
+
+  assertInstanceOf(container.resolve(BindClass), BindClass);
+  assertNotStrictEquals(
+    container.resolve(BindClass),
+    container.resolve(BindClass),
+  );
+
+  assertInstanceOf(container.resolve(ResolveClass), ResolveClass);
+  assertNotStrictEquals(
+    container.resolve(ResolveClass),
+    container.resolve(ResolveClass),
+  );
+});
+
+Deno.test("ContainerImpl, lifetime singleton", () => {
+  class BindClass {}
+  class ResolveClass {}
+
+  const container = new ContainerImpl();
+
+  container.bind(BindClass).scope(Lifetime.Singleton);
+  container.resolver(ResolveClass, () => new ResolveClass()).scope(
+    Lifetime.Singleton,
+  );
+
+  assertInstanceOf(container.resolve(BindClass), BindClass);
+  assertStrictEquals(
+    container.resolve(BindClass),
+    container.resolve(BindClass),
+  );
+
+  assertInstanceOf(container.resolve(ResolveClass), ResolveClass);
+  assertStrictEquals(
+    container.resolve(ResolveClass),
+    container.resolve(ResolveClass),
+  );
 });

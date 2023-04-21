@@ -1,9 +1,12 @@
+import { ContainerFluent } from "./container_fluent.ts";
 import { chain, type MaybePromise } from "./maybe_promise.ts";
-export class InstanceResolver<T> {
+import { Lifetime } from "./types.ts";
+
+export class InstanceResolver<T> implements ContainerFluent<T> {
   resolver: () => MaybePromise<T>;
   resolved?: T;
   resolvedPromise?: Promise<T>;
-  singleton = false;
+  lifetime = Lifetime.Singleton;
 
   afterHandlers = [] as ((instance: T) => MaybePromise<void>)[];
 
@@ -18,11 +21,18 @@ export class InstanceResolver<T> {
     return this;
   }
 
+  scope(lifetime: Lifetime): this {
+    this.lifetime = lifetime;
+    return this;
+  }
+
+  /** @internal */
   reset(): void {
     this.resolved = undefined;
     this.resolvedPromise = undefined;
   }
 
+  /** @internal */
   resolve(): MaybePromise<T> {
     if (this.resolvedPromise) {
       return this.resolvedPromise;
@@ -33,7 +43,7 @@ export class InstanceResolver<T> {
 
     const value = chain(this.resolver())
       .next((value) => {
-        if (this.singleton) {
+        if (this.lifetime !== Lifetime.Transient) {
           this.resolved = value;
         }
         return value;
@@ -51,7 +61,7 @@ export class InstanceResolver<T> {
       })
       .value();
 
-    if (this.singleton && value instanceof Promise) {
+    if (this.lifetime !== Lifetime.Transient && value instanceof Promise) {
       this.resolvedPromise = value;
     }
 
