@@ -1,5 +1,6 @@
 import {
   assertEquals,
+  assertFalse,
   assertInstanceOf,
   assertNotStrictEquals,
   assertStrictEquals,
@@ -12,7 +13,36 @@ import { ContainerImpl } from "./container_impl.ts";
 import { Inject } from "./decorator/inject.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
-import { Lifetime } from "./types.ts";
+import { ConstructType, Lifetime } from "./types.ts";
+
+function assertContainerHasSingleton(
+  container: Container,
+  identifier: ServiceIdentifier<unknown>,
+) {
+  if (typeof identifier === "function") {
+    assertInstanceOf(
+      container.resolve(identifier),
+      identifier as ConstructType<unknown>,
+    );
+  }
+  assertStrictEquals(
+    container.resolve(identifier),
+    container.resolve(identifier),
+  );
+}
+
+async function assertContainerUndefined(
+  container: Container,
+  identifier: ServiceIdentifier<unknown>,
+) {
+  assertFalse(container.has(identifier));
+  try {
+    await container.resolve(identifier);
+    fail("should throw UndefinedError");
+  } catch (e) {
+    assertInstanceOf(e, UndefinedError);
+  }
+}
 
 Deno.test("ContainerImpl, define value", () => {
   class Foo {
@@ -510,8 +540,8 @@ Deno.test("ContainerImpl, lifetime transient", () => {
 
   const container = new ContainerImpl();
 
-  container.bind(BindClass).scope(Lifetime.Transient);
-  container.resolver(ResolveClass, () => new ResolveClass()).scope(
+  container.bind(BindClass).lifetime(Lifetime.Transient);
+  container.resolver(ResolveClass, () => new ResolveClass()).lifetime(
     Lifetime.Transient,
   );
 
@@ -534,8 +564,8 @@ Deno.test("ContainerImpl, lifetime singleton", () => {
 
   const container = new ContainerImpl();
 
-  container.bind(BindClass).scope(Lifetime.Singleton);
-  container.resolver(ResolveClass, () => new ResolveClass()).scope(
+  container.bind(BindClass).lifetime(Lifetime.Singleton);
+  container.resolver(ResolveClass, () => new ResolveClass()).lifetime(
     Lifetime.Singleton,
   );
 
@@ -550,4 +580,69 @@ Deno.test("ContainerImpl, lifetime singleton", () => {
     container.resolve(ResolveClass),
     container.resolve(ResolveClass),
   );
+});
+
+Deno.test("ContainerImpl, lifetime scoped", () => {
+  class ScopedBindClass {}
+  class ScopedResolveClass {}
+  class SingletonBindClass {}
+  class SingletonResolveClass {}
+
+  const container = new ContainerImpl();
+
+  container.bind(ScopedBindClass).lifetime(Lifetime.Scoped);
+  container.resolver(ScopedResolveClass, () => new ScopedResolveClass())
+    .lifetime(
+      Lifetime.Scoped,
+    );
+  container.bind(SingletonBindClass).lifetime(Lifetime.Singleton);
+  container.resolver(SingletonResolveClass, () => new SingletonResolveClass())
+    .lifetime(
+      Lifetime.Singleton,
+    );
+
+  // singleton!
+  assertContainerHasSingleton(container, ScopedBindClass);
+  assertContainerHasSingleton(container, ScopedResolveClass);
+
+  {
+    const scopedContainer = container.scope();
+
+    assertContainerHasSingleton(scopedContainer, ScopedBindClass);
+    assertContainerHasSingleton(scopedContainer, ScopedResolveClass);
+
+    // singleton is same
+    assertStrictEquals(
+      scopedContainer.resolve(SingletonBindClass),
+      container.resolve(SingletonBindClass),
+    );
+    // but different from parent container
+    assertNotStrictEquals(
+      scopedContainer.resolve(ScopedBindClass),
+      container.resolve(ScopedBindClass),
+    );
+  }
+});
+
+Deno.test("ContainerImpl, lifetime scoped, split container space", () => {
+  const container = new ContainerImpl();
+
+  {
+    class BindClass {}
+    class ResolveClass {}
+
+    const scopedContainer = container.scope();
+
+    scopedContainer.bind(BindClass);
+    scopedContainer.resolver(
+      ResolveClass,
+      () => new ResolveClass(),
+    );
+
+    assertContainerHasSingleton(scopedContainer, BindClass);
+    assertContainerHasSingleton(scopedContainer, ResolveClass);
+
+    assertContainerUndefined(container, BindClass);
+    assertContainerUndefined(container, ResolveClass);
+  }
 });

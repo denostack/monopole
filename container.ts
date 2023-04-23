@@ -34,4 +34,7 @@ export abstract class Container implements ModuleDescriptor {
   abstract register(module: Module): void;
   abstract boot(): MaybePromise<void>;
   abstract close(): MaybePromise<void>;
+
+  // deno-lint-ignore ban-types
+  abstract scope(target?: object): Container;
 }

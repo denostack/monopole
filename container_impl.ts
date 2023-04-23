@@ -17,6 +17,9 @@ export class ContainerImpl extends Container {
   // deno-lint-ignore no-explicit-any
   _aliases = new Map<ServiceIdentifier<any>, ServiceIdentifier<any>>();
 
+  // deno-lint-ignore ban-types
+  _scopes = new WeakMap<object, ContainerImpl>();
+
   _booted = false;
   _booting?: MaybePromise<void>; // booting promise (promise lock)
   _closing?: MaybePromise<void>; // closing promise (promise lock)
@@ -99,7 +102,7 @@ export class ContainerImpl extends Container {
     try {
       let resolver: InstanceResolver<unknown> | undefined;
       if ((resolver = this._resolvers.get(id))) {
-        return resolver.resolve() as MaybePromise<T>;
+        return resolver.resolve(this) as MaybePromise<T>;
       }
     } catch (e) {
       if (e instanceof UndefinedError) {
@@ -156,7 +159,7 @@ export class ContainerImpl extends Container {
     this._booting = all(modules.map((m) => m.boot?.(this)))
       .next(() =>
         all(
-          [...this._resolvers.values()].map((value) => value.resolve()),
+          [...this._resolvers.values()].map((value) => value.resolve(this)),
         ).value()
       )
       .next(() => {
@@ -188,6 +191,16 @@ export class ContainerImpl extends Container {
       .value();
 
     return this._closing;
+  }
+
+  // deno-lint-ignore ban-types
+  scope(target: object = {}): Container {
+    if (!this._scopes.has(target)) {
+      const container = new ContainerImpl();
+      container._resolvers = new Map(this._resolvers.entries());
+      this._scopes.set(target, container);
+    }
+    return this._scopes.get(target)!;
   }
 
   _injectProperties<T>(

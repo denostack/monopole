@@ -22,25 +22,25 @@ function asyncHandler<TArg, TReturn>(
 
 Deno.test("InstanceResolver, sync resolver", () => {
   const resolver = new InstanceResolver(() => ({ message: "hello world" }));
-  resolver.scope(Lifetime.Transient);
+  resolver.lifetime(Lifetime.Transient);
 
-  const value = resolver.resolve();
+  const value = resolver.resolve({});
   assertEquals(value, { message: "hello world" });
-  assertNotStrictEquals(resolver.resolve(), resolver.resolve());
+  assertNotStrictEquals(resolver.resolve({}), resolver.resolve({}));
 });
 
 Deno.test("InstanceResolver, async resolver", async () => {
   const resolver = new InstanceResolver(() =>
     asyncValue({ message: "hello world!" })
   );
-  resolver.scope(Lifetime.Transient);
+  resolver.lifetime(Lifetime.Transient);
 
-  const value = resolver.resolve();
+  const value = resolver.resolve({});
   assertInstanceOf(value, Promise);
   assertEquals(await value, { message: "hello world!" });
 
-  assertNotStrictEquals(resolver.resolve(), resolver.resolve());
-  assertNotStrictEquals(await resolver.resolve(), await resolver.resolve());
+  assertNotStrictEquals(resolver.resolve({}), resolver.resolve({}));
+  assertNotStrictEquals(await resolver.resolve({}), await resolver.resolve({}));
 });
 
 Deno.test("InstanceResolver, after only sync", () => {
@@ -48,10 +48,10 @@ Deno.test("InstanceResolver, after only sync", () => {
   resolver.after((value) => {
     value.message = `(${value.message})`;
   });
-  resolver.scope(Lifetime.Transient);
+  resolver.lifetime(Lifetime.Transient);
 
-  assertEquals(resolver.resolve(), { message: "(hello world)" });
-  assertNotStrictEquals(resolver.resolve(), resolver.resolve());
+  assertEquals(resolver.resolve({}), { message: "(hello world)" });
+  assertNotStrictEquals(resolver.resolve({}), resolver.resolve({}));
 });
 
 Deno.test("InstanceResolver, after with async", async (t) => {
@@ -62,14 +62,14 @@ Deno.test("InstanceResolver, after with async", async (t) => {
         () => asyncValue({ message: "hello world!" }),
       ).after((value) => {
         value.message = `(${value.message})`;
-      }).scope(Lifetime.Transient),
+      }).lifetime(Lifetime.Transient),
     },
     {
       name: "sync + async",
       resolver: new InstanceResolver(() => ({ message: "hello world!" }))
         .after(asyncHandler((value) => {
           value.message = `(${value.message})`;
-        })).scope(Lifetime.Transient),
+        })).lifetime(Lifetime.Transient),
     },
     {
       name: "async + async",
@@ -77,7 +77,7 @@ Deno.test("InstanceResolver, after with async", async (t) => {
         () => asyncValue({ message: "hello world!" }),
       ).after(asyncHandler((value) => {
         value.message = `(${value.message})`;
-      })).scope(Lifetime.Transient),
+      })).lifetime(Lifetime.Transient),
     },
   ];
 
@@ -85,15 +85,15 @@ Deno.test("InstanceResolver, after with async", async (t) => {
     await t.step({
       name,
       fn: async () => {
-        const value = resolver.resolve();
+        const value = resolver.resolve({});
         assertInstanceOf(value, Promise);
         assertEquals(await value, { message: "(hello world!)" });
 
-        assertNotStrictEquals(resolver.resolve(), resolver.resolve());
-        assertEquals(await resolver.resolve(), await resolver.resolve());
+        assertNotStrictEquals(resolver.resolve({}), resolver.resolve({}));
+        assertEquals(await resolver.resolve({}), await resolver.resolve({}));
         assertNotStrictEquals(
-          await resolver.resolve(),
-          await resolver.resolve(),
+          await resolver.resolve({}),
+          await resolver.resolve({}),
         );
       },
       sanitizeOps: false,
@@ -109,8 +109,8 @@ Deno.test("InstanceResolver, singleton with sync", () => {
       value.message = `(${value.message})`;
     });
 
-  assertEquals(resolver.resolve(), { message: "(hello world)" });
-  assertStrictEquals(resolver.resolve(), resolver.resolve());
+  assertEquals(resolver.resolve({}), { message: "(hello world)" });
+  assertStrictEquals(resolver.resolve({}), resolver.resolve({}));
 });
 
 Deno.test("InstanceResolver, singleton with async", async (t) => {
@@ -144,17 +144,17 @@ Deno.test("InstanceResolver, singleton with async", async (t) => {
     await t.step({
       name,
       fn: async () => {
-        const valuePromise = resolver.resolve();
+        const valuePromise = resolver.resolve({});
 
         assertInstanceOf(valuePromise, Promise);
-        assertStrictEquals(resolver.resolve(), valuePromise);
+        assertStrictEquals(resolver.resolve({}), valuePromise);
 
         const value = await valuePromise;
         assertEquals(value, { message: "(hello world!)" });
 
         // first resolved value is cached.
         // so, second resolve is not promise.
-        const secondValue = resolver.resolve();
+        const secondValue = resolver.resolve({});
         assertNotInstanceOf(secondValue, Promise);
         assertStrictEquals(secondValue, value);
       },
