@@ -1,19 +1,25 @@
 import { Container } from "./container.ts";
-import { UndefinedError } from "./error/undefined_error.ts";
-import { FrozenError } from "./error/frozen_error.ts";
-import { InstanceResolver } from "./instance_resolver.ts";
-import { all, chain, MaybePromise } from "./maybe_promise.ts";
-import { metadata, MetadataInjectProp } from "./metadata.ts";
-import { Module } from "./module.ts";
-import { ServiceIdentifier } from "./service_identifier.ts";
-import { ConstructType } from "./types.ts";
 import { ContainerFluent } from "./container_fluent.ts";
+import { FrozenError } from "./error/frozen_error.ts";
+import { UndefinedError } from "./error/undefined_error.ts";
+import { all, chain } from "./maybe_promise.ts";
+import { Module } from "./module.ts";
+import { Provider } from "./provider.ts";
+import { ProviderDescriptor } from "./provider_descriptor.ts";
+import { resolveSingleton } from "./resolve/resolve_singleton.ts";
+import { resolveTransient } from "./resolve/resolve_transient.ts";
+import { injectProperties } from "./resolve/utils.ts";
+import { ServiceIdentifier } from "./service_identifier.ts";
+import { ConstructType, Lifetime, MaybePromise } from "./types.ts";
 
 export class ContainerImpl extends Container {
+  _parent?: ContainerImpl;
   _modules = new Set<Module>();
 
   // deno-lint-ignore no-explicit-any
-  _resolvers = new Map<ServiceIdentifier<any>, InstanceResolver<any>>();
+  _providers = new Map<ServiceIdentifier<any>, Provider<any>>();
+  // deno-lint-ignore no-explicit-any
+  _values = new Map<ServiceIdentifier<any>, any>();
   // deno-lint-ignore no-explicit-any
   _aliases = new Map<ServiceIdentifier<any>, ServiceIdentifier<any>>();
 
@@ -35,8 +41,12 @@ export class ContainerImpl extends Container {
     value: MaybePromise<T>,
   ): void {
     this.delete(id);
-    const resolver = new InstanceResolver(() => value);
-    this._resolvers.set(id, resolver);
+    const provider: Provider<T> = {
+      resolver: () => value,
+      lifetime: Lifetime.Singleton,
+      afterHandlers: [],
+    };
+    this._providers.set(id, provider);
   }
 
   resolver<T>(
@@ -44,9 +54,13 @@ export class ContainerImpl extends Container {
     resolveHandler: () => MaybePromise<T>,
   ): ContainerFluent<T> {
     this.delete(id);
-    const resolver = new InstanceResolver(resolveHandler);
-    this._resolvers.set(id, resolver);
-    return resolver;
+    const provider: Provider<T> = {
+      resolver: resolveHandler,
+      lifetime: Lifetime.Singleton,
+      afterHandlers: [],
+    };
+    this._providers.set(id, provider);
+    return new ProviderDescriptor(provider);
   }
 
   bind<T>(constructor: ConstructType<T>): ContainerFluent<T>;
@@ -60,17 +74,13 @@ export class ContainerImpl extends Container {
   ): ContainerFluent<T> {
     this.delete(id);
     const Ctor = constructor ?? id as ConstructType<T>;
-    const resolver = new InstanceResolver(() => {
-      return new Ctor();
-    });
-    resolver.after((value) => {
-      return this._injectProperties(
-        value,
-        metadata.inject.get(Ctor) ?? [],
-      );
-    });
-    this._resolvers.set(id, resolver);
-    return resolver;
+    const provider: Provider<T> = {
+      resolver: () => new Ctor(),
+      lifetime: Lifetime.Singleton,
+      afterHandlers: [],
+    };
+    this._providers.set(id, provider);
+    return new ProviderDescriptor(provider);
   }
 
   alias(
@@ -82,13 +92,7 @@ export class ContainerImpl extends Container {
   }
 
   create<T>(Ctor: ConstructType<T>): MaybePromise<T> {
-    const value = new Ctor();
-    return chain(this._injectProperties<T>(
-      value,
-      (metadata.inject.get(Ctor) ?? []) as MetadataInjectProp<T>[],
-    ))
-      .next(() => value)
-      .value();
+    return injectProperties<T>(new Ctor(), this);
   }
 
   resolve<T>(id: ServiceIdentifier<T>): MaybePromise<T> {
@@ -98,12 +102,22 @@ export class ContainerImpl extends Container {
       aliasStack.push(id);
       id = aliasId as ServiceIdentifier<T>;
     }
-
+    const provider = this._providers.get(id);
+    if (!provider) {
+      throw new UndefinedError(id, aliasStack);
+    }
     try {
-      let resolver: InstanceResolver<unknown> | undefined;
-      if ((resolver = this._resolvers.get(id))) {
-        return resolver.resolve(this) as MaybePromise<T>;
+      if (provider.lifetime === Lifetime.Singleton) {
+        let root = this._parent ?? this;
+        while (root._parent) {
+          root = root._parent;
+        }
+        return resolveSingleton(root, provider);
       }
+      if (provider.lifetime === Lifetime.Scoped) {
+        return resolveSingleton(this, provider);
+      }
+      return resolveTransient(this, provider);
     } catch (e) {
       if (e instanceof UndefinedError) {
         throw new UndefinedError(id, aliasStack, e.resolveStack);
@@ -111,16 +125,14 @@ export class ContainerImpl extends Container {
         throw e;
       }
     }
-
-    throw new UndefinedError(id, aliasStack);
   }
 
   get<T>(id: ServiceIdentifier<T>): T {
-    const resolver = this._resolvers.get(id);
-    if (resolver?.resolved) {
-      return resolver.resolved as T;
+    const value = this._values.get(id);
+    if (value) {
+      return value;
     }
-    throw new UndefinedError(id, []);
+    throw new UndefinedError(id);
   }
 
   has<T>(id: ServiceIdentifier<T>): boolean {
@@ -128,7 +140,7 @@ export class ContainerImpl extends Container {
     while ((aliasId = this._aliases.get(id))) {
       id = aliasId as ServiceIdentifier<T>;
     }
-    return this._resolvers.has(id);
+    return this._values.has(id) || this._providers.has(id);
   }
 
   register(module: Module) {
@@ -136,11 +148,10 @@ export class ContainerImpl extends Container {
   }
 
   delete(id: ServiceIdentifier<unknown>): void {
-    const resolver = this._resolvers.get(id);
-    if (resolver?.resolved || resolver?.resolvedPromise) {
+    if (this._values.has(id)) {
       throw new FrozenError(id);
     }
-    this._resolvers.delete(id);
+    this._providers.delete(id);
     this._aliases.delete(id);
   }
 
@@ -159,7 +170,33 @@ export class ContainerImpl extends Container {
     this._booting = all(modules.map((m) => m.boot?.(this)))
       .next(() =>
         all(
-          [...this._resolvers.values()].map((value) => value.resolve(this)),
+          [...this._providers.entries()].map(([id, provider]) => {
+            if (provider.lifetime === Lifetime.Singleton) {
+              let root = this._parent ?? this;
+              while (root._parent) {
+                root = root._parent;
+              }
+              return chain(resolveSingleton(root, provider)).next((value) => {
+                this._values.set(id, value);
+              }).value();
+            }
+            if (provider.lifetime === Lifetime.Scoped) {
+              try {
+                const resolved = resolveSingleton(this, provider);
+                if (resolved instanceof Promise) {
+                  return resolved.then((value) => {
+                    this._values.set(id, value);
+                  }).catch(() => {
+                    // ignore
+                  });
+                } else {
+                  this._values.set(id, resolved);
+                }
+              } catch {
+                // ignore
+              }
+            }
+          }),
         ).value()
       )
       .next(() => {
@@ -182,8 +219,8 @@ export class ContainerImpl extends Container {
 
     this._closing = chain(this._booting)
       .next(() => all(modules.map((m) => m.close?.(this))))
-      .next(() => [...this._resolvers.values()].map((value) => value.reset()))
       .next(() => {
+        this._values.clear();
         delete this._closing;
         delete this._booting;
         this._booted = false;
@@ -197,27 +234,10 @@ export class ContainerImpl extends Container {
   scope(target: object = {}): Container {
     if (!this._scopes.has(target)) {
       const container = new ContainerImpl();
-      container._resolvers = new Map(this._resolvers.entries());
+      container._parent = this;
+      container._providers = new Map(this._providers.entries());
       this._scopes.set(target, container);
     }
     return this._scopes.get(target)!;
-  }
-
-  _injectProperties<T>(
-    value: T,
-    properties: MetadataInjectProp<T>[],
-  ): MaybePromise<void> {
-    return all(properties.map(({ id, property, transformer }) => {
-      return chain(this.resolve(id)).next((resolved) => {
-        return {
-          property,
-          dependency: (transformer?.(resolved) ?? resolved) as T[keyof T],
-        };
-      }).value();
-    })).next((deps) => {
-      for (const { property, dependency } of deps) {
-        value[property] = dependency;
-      }
-    }).value();
   }
 }

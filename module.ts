@@ -1,6 +1,5 @@
-import { MaybePromise } from "./maybe_promise.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
-import { ConstructType } from "./types.ts";
+import type { ConstructType, MaybePromise } from "./types.ts";
 
 export interface Module {
   configure?(descriptor: ModuleDescriptor): void;

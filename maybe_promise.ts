@@ -1,4 +1,4 @@
-export type MaybePromise<T> = T | Promise<T>;
+import { MaybePromise } from "./types.ts";
 
 export interface MaybePromiseChain<T> {
   next<TNext>(

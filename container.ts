@@ -1,8 +1,8 @@
 import { ContainerFluent } from "./container_fluent.ts";
-import { MaybePromise } from "./maybe_promise.ts";
+
 import { Module, ModuleDescriptor } from "./module.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
-import { ConstructType } from "./types.ts";
+import { ConstructType, MaybePromise, Resolver } from "./types.ts";
 
 export abstract class Container implements ModuleDescriptor {
   abstract value<T>(
@@ -12,7 +12,7 @@ export abstract class Container implements ModuleDescriptor {
 
   abstract resolver<T>(
     id: ServiceIdentifier<T>,
-    resolver: () => MaybePromise<T>,
+    resolver: Resolver<T>,
   ): ContainerFluent<T>;
   abstract bind<T>(constructor: ConstructType<T>): ContainerFluent<T>;
   abstract bind<T>(

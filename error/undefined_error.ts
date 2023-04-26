@@ -22,7 +22,7 @@ export class UndefinedError extends Error {
 
   constructor(
     public target: ServiceIdentifier<unknown>,
-    aliasStack: ServiceIdentifier<unknown>[],
+    aliasStack: ServiceIdentifier<unknown>[] = [],
     beforeStack: StackItem[] = [],
   ) {
     super(`${toString(target)} is undefined!`);
