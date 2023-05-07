@@ -532,6 +532,17 @@ Deno.test("createContainer, predefined values", () => {
 
   assertStrictEquals(container.resolve(Container), container);
   assertStrictEquals(container.resolve("@"), container);
+
+  const scopedContainer = container.scope();
+
+  assertStrictEquals(scopedContainer.resolve(Container), scopedContainer);
+  assertStrictEquals(scopedContainer.resolve("@"), container);
+
+  // 2-depth
+  const scopedContainer2 = scopedContainer.scope();
+
+  assertStrictEquals(scopedContainer2.resolve(Container), scopedContainer2);
+  assertStrictEquals(scopedContainer2.resolve("@"), container);
 });
 
 Deno.test("createContainer, lifetime transient", () => {

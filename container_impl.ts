@@ -30,10 +30,11 @@ export class ContainerImpl extends Container {
   _booting?: MaybePromise<void>; // booting promise (promise lock)
   _closing?: MaybePromise<void>; // closing promise (promise lock)
 
-  constructor() {
+  constructor(root?: ContainerImpl) {
     super();
-    this.value(Container, this);
-    this.value("@", this);
+    this._root = root;
+    this._values.set(Container, this);
+    this._values.set("@", root ?? this);
   }
 
   value<T>(
@@ -101,6 +102,10 @@ export class ContainerImpl extends Container {
     while ((aliasId = this._aliases.get(id))) {
       aliasStack.push(id);
       id = aliasId as ServiceIdentifier<T>;
+    }
+    const value = this._values.get(id);
+    if (value) {
+      return value;
     }
     const provider = this._providers.get(id);
     if (!provider) {
@@ -214,8 +219,7 @@ export class ContainerImpl extends Container {
   // deno-lint-ignore ban-types
   scope(target: object = {}): Container {
     if (!this._scopes.has(target)) {
-      const container = new ContainerImpl();
-      container._root = this._root ?? this;
+      const container = new ContainerImpl(this._root ?? this);
       container._providers = new Map(this._providers.entries());
       this._scopes.set(target, container);
     }
