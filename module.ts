@@ -2,7 +2,7 @@ import { ServiceIdentifier } from "./service_identifier.ts";
 import type { ConstructType, MaybePromise } from "./types.ts";
 
 export interface Module {
-  configure?(descriptor: ModuleDescriptor): void;
+  provide?(descriptor: ModuleDescriptor): void;
   boot?(descriptor: ModuleDescriptor): MaybePromise<void>;
   close?(descriptor: ModuleDescriptor): MaybePromise<void>;
 }

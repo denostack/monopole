@@ -282,7 +282,7 @@ Deno.test("ContainerImpl, boot", async () => {
   let countCallBoot = 0;
 
   container.register({
-    configure() {
+    provide() {
       countCallConfigure++;
     },
     boot() {
@@ -306,7 +306,7 @@ Deno.test("ContainerImpl, close", async () => {
   let countCallClose = 0;
 
   container.register({
-    configure() {
+    provide() {
       countCallConfigure++;
     },
     boot() {

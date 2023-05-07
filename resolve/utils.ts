@@ -23,7 +23,7 @@ export function injectProperties<T>(
   value: T,
   container: Container,
 ): MaybePromise<T> {
-  if (value === null || typeof value !== "object") {
+  if (!isObject(value)) {
     return value;
   }
   const properties =
@@ -41,4 +41,9 @@ export function injectProperties<T>(
     }
     return value;
   }).value();
+}
+
+// deno-lint-ignore ban-types
+function isObject(value: unknown): value is object {
+  return value !== null && typeof value === "object";
 }

@@ -155,7 +155,7 @@ export class ContainerImpl extends Container {
 
     const modules = [...this._modules];
 
-    modules.forEach((m) => m.configure?.(this));
+    modules.forEach((m) => m.provide?.(this));
 
     this._booting = all(modules.map((m) => m.boot?.(this)))
       .next(() => {
