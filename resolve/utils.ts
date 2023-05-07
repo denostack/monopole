@@ -8,6 +8,9 @@ export function afterResolve<T>(
   value: T,
   afterHandlers: AfterResolveHandler<T>[],
 ): MaybePromise<T> {
+  if (afterHandlers.length === 0) {
+    return value;
+  }
   let c = chain();
   for (const handler of afterHandlers) {
     c = c.next(() => handler(value));

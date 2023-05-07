@@ -13,7 +13,7 @@ import { ServiceIdentifier } from "./service_identifier.ts";
 import { ConstructType, Lifetime, MaybePromise } from "./types.ts";
 
 export class ContainerImpl extends Container {
-  _parent?: ContainerImpl;
+  _root?: ContainerImpl; // only has root when this container is a child container
   _modules = new Set<Module>();
 
   // deno-lint-ignore no-explicit-any
@@ -107,17 +107,7 @@ export class ContainerImpl extends Container {
       throw new UndefinedError(id, aliasStack);
     }
     try {
-      if (provider.lifetime === Lifetime.Singleton) {
-        let root = this._parent ?? this;
-        while (root._parent) {
-          root = root._parent;
-        }
-        return resolveSingleton(root, provider);
-      }
-      if (provider.lifetime === Lifetime.Scoped) {
-        return resolveSingleton(this, provider);
-      }
-      return resolveTransient(this, provider);
+      return this._resolveProvider(provider);
     } catch (e) {
       if (e instanceof UndefinedError) {
         throw new UndefinedError(id, aliasStack, e.resolveStack);
@@ -168,37 +158,28 @@ export class ContainerImpl extends Container {
     modules.forEach((m) => m.configure?.(this));
 
     this._booting = all(modules.map((m) => m.boot?.(this)))
-      .next(() =>
-        all(
-          [...this._providers.entries()].map(([id, provider]) => {
-            if (provider.lifetime === Lifetime.Singleton) {
-              let root = this._parent ?? this;
-              while (root._parent) {
-                root = root._parent;
-              }
-              return chain(resolveSingleton(root, provider)).next((value) => {
-                this._values.set(id, value);
-              }).value();
-            }
-            if (provider.lifetime === Lifetime.Scoped) {
-              try {
-                const resolved = resolveSingleton(this, provider);
-                if (resolved instanceof Promise) {
-                  return resolved.then((value) => {
-                    this._values.set(id, value);
-                  }).catch(() => {
-                    // ignore
-                  });
-                } else {
-                  this._values.set(id, resolved);
-                }
-              } catch {
-                // ignore
-              }
-            }
-          }),
-        ).value()
-      )
+      .next(() => {
+        let providerEntries = [...this._providers.entries()];
+        if (this._root) {
+          // scoped container
+          providerEntries = providerEntries.filter(([, provider]) =>
+            provider.lifetime === Lifetime.Singleton ||
+            provider.lifetime === Lifetime.Scoped
+          );
+        } else {
+          // root container
+          providerEntries = providerEntries.filter(([, provider]) =>
+            provider.lifetime === Lifetime.Singleton
+          );
+        }
+        return all(
+          providerEntries.map(([id, provider]) =>
+            chain(this._resolveProvider(provider)).next(
+              (v) => this._values.set(id, v),
+            ).value()
+          ),
+        ).value();
+      })
       .next(() => {
         this._booted = true;
       })
@@ -234,10 +215,20 @@ export class ContainerImpl extends Container {
   scope(target: object = {}): Container {
     if (!this._scopes.has(target)) {
       const container = new ContainerImpl();
-      container._parent = this;
+      container._root = this._root ?? this;
       container._providers = new Map(this._providers.entries());
       this._scopes.set(target, container);
     }
     return this._scopes.get(target)!;
+  }
+
+  _resolveProvider<T>(provider: Provider<T>): MaybePromise<T> {
+    if (provider.lifetime === Lifetime.Transient) {
+      return resolveTransient(this, provider);
+    }
+    const baseContainer = provider.lifetime === Lifetime.Singleton && this._root
+      ? this._root
+      : this;
+    return resolveSingleton(baseContainer, provider);
   }
 }
