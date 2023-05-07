@@ -9,11 +9,11 @@ import {
 } from "testing/asserts.ts";
 
 import { Container } from "./container.ts";
-import { ContainerImpl } from "./container_impl.ts";
 import { Inject } from "./decorator/inject.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
 import { ConstructType, Lifetime } from "./types.ts";
+import { createContainer } from "./create_container.ts";
 
 function assertContainerHasSingleton(
   container: Container,
@@ -44,12 +44,12 @@ async function assertContainerUndefined(
   }
 }
 
-Deno.test("ContainerImpl, define value", () => {
+Deno.test("createContainer, define value", () => {
   class Foo {
     constructor(public message: string) {}
   }
 
-  const container = new ContainerImpl();
+  const container = createContainer();
   container.value("message", "hello world!");
   container.value(Foo, new Foo("hello world!"));
 
@@ -59,12 +59,12 @@ Deno.test("ContainerImpl, define value", () => {
   assertStrictEquals(container.resolve(Foo), container.resolve(Foo)); // singleton
 });
 
-Deno.test("ContainerImpl, define resolver", () => {
+Deno.test("createContainer, define resolver", () => {
   class Foo {
     constructor(public message: string) {}
   }
 
-  const container = new ContainerImpl();
+  const container = createContainer();
 
   container.resolver("resolver", () => ({ message: "this is resolver" }));
   container.resolver(Foo, () => new Foo("this is foo"));
@@ -79,12 +79,12 @@ Deno.test("ContainerImpl, define resolver", () => {
   assertStrictEquals(container.resolve(Foo), container.resolve(Foo)); // singleton
 });
 
-Deno.test("ContainerImpl, define promise resolver", async () => {
+Deno.test("createContainer, define promise resolver", async () => {
   class Foo {
     constructor(public message: string) {}
   }
 
-  const container = new ContainerImpl();
+  const container = createContainer();
 
   container.resolver(
     Foo,
@@ -106,8 +106,8 @@ Deno.test("ContainerImpl, define promise resolver", async () => {
   assertStrictEquals(container.resolve(Foo), value); // singleton
 });
 
-Deno.test("ContainerImpl, define bind", () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, define bind", () => {
+  const container = createContainer();
 
   class Driver1 {
   }
@@ -128,8 +128,8 @@ Deno.test("ContainerImpl, define bind", () => {
   assertStrictEquals(container.resolve(Driver2), result2); // same instance (singleton)`
 });
 
-Deno.test("ContainerImpl, define alias", () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, define alias", () => {
+  const container = createContainer();
 
   class Driver1 {
   }
@@ -158,8 +158,8 @@ Deno.test("ContainerImpl, define alias", () => {
   assertStrictEquals(result4, container.resolve("alias4"));
 });
 
-Deno.test("ContainerImpl, has", () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, has", () => {
+  const container = createContainer();
 
   class Driver1 {
   }
@@ -184,8 +184,8 @@ Deno.test("ContainerImpl, has", () => {
   assertEquals(container.has("unknown"), false);
 });
 
-Deno.test("ContainerImpl, resolve with inject", () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, resolve with inject", () => {
+  const container = createContainer();
 
   class Driver {
   }
@@ -207,8 +207,8 @@ Deno.test("ContainerImpl, resolve with inject", () => {
   assertInstanceOf(connection.driver, Driver);
 });
 
-Deno.test("ContainerImpl, run create (factory)", () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, run create (factory)", () => {
+  const container = createContainer();
 
   class Connection {
   }
@@ -231,8 +231,8 @@ Deno.test("ContainerImpl, run create (factory)", () => {
   assertNotStrictEquals(container.create(Controller), controller);
 });
 
-Deno.test("ContainerImpl, resolve circular dependency bind", () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, resolve circular dependency bind", () => {
+  const container = createContainer();
 
   class A {
     @Inject("b")
@@ -258,8 +258,8 @@ Deno.test("ContainerImpl, resolve circular dependency bind", () => {
   assertStrictEquals(instB.a, instA);
 });
 
-Deno.test("ContainerImpl, resolve self dependency bind", () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, resolve self dependency bind", () => {
+  const container = createContainer();
 
   class SelfDependency {
     @Inject(SelfDependency)
@@ -275,8 +275,8 @@ Deno.test("ContainerImpl, resolve self dependency bind", () => {
   assertStrictEquals(value.self, value);
 });
 
-Deno.test("ContainerImpl, boot", async () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, boot", async () => {
+  const container = createContainer();
 
   let countCallConfigure = 0;
   let countCallBoot = 0;
@@ -298,8 +298,8 @@ Deno.test("ContainerImpl, boot", async () => {
   assertEquals(countCallBoot, 1);
 });
 
-Deno.test("ContainerImpl, close", async () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, close", async () => {
+  const container = createContainer();
 
   let countCallConfigure = 0;
   let countCallBoot = 0;
@@ -327,8 +327,8 @@ Deno.test("ContainerImpl, close", async () => {
   assertEquals(countCallClose, 1);
 });
 
-Deno.test("ContainerImpl, boot with promise", async () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, boot with promise", async () => {
+  const container = createContainer();
 
   container.value("instance", Promise.resolve({ name: "instance" }));
   container.resolver("resolver", () => {
@@ -350,8 +350,8 @@ Deno.test("ContainerImpl, boot with promise", async () => {
   assertStrictEquals(container.get("resolver"), await promiseResolver);
 });
 
-Deno.test("ContainerImpl, UndefinedError", async (t) => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, UndefinedError", async (t) => {
+  const container = createContainer();
 
   class Something {}
 
@@ -413,10 +413,10 @@ Deno.test("ContainerImpl, UndefinedError", async (t) => {
   );
 });
 
-Deno.test("ContainerImpl, UndefinedError with alias", () => {
+Deno.test("createContainer, UndefinedError with alias", () => {
   class Something {}
 
-  const container = new ContainerImpl();
+  const container = createContainer();
 
   container.resolver(
     "instance",
@@ -476,12 +476,12 @@ Deno.test("ContainerImpl, UndefinedError with alias", () => {
   }
 });
 
-Deno.test("ContainerImpl, UndefinedError (many stack)", () => {
+Deno.test("createContainer, UndefinedError (many stack)", () => {
   class Something {}
   const symbol = Symbol("symbol");
   const anonymousClass = (() => class {})();
 
-  const container = new ContainerImpl();
+  const container = createContainer();
 
   container.resolver(
     "instance",
@@ -527,18 +527,18 @@ Deno.test("ContainerImpl, UndefinedError (many stack)", () => {
   }
 });
 
-Deno.test("ContainerImpl, predefined values", () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, predefined values", () => {
+  const container = createContainer();
 
   assertStrictEquals(container.resolve(Container), container);
   assertStrictEquals(container.resolve("@"), container);
 });
 
-Deno.test("ContainerImpl, lifetime transient", () => {
+Deno.test("createContainer, lifetime transient", () => {
   class BindClass {}
   class ResolveClass {}
 
-  const container = new ContainerImpl();
+  const container = createContainer();
 
   container.bind(BindClass).lifetime(Lifetime.Transient);
   container.resolver(ResolveClass, () => new ResolveClass()).lifetime(
@@ -558,11 +558,11 @@ Deno.test("ContainerImpl, lifetime transient", () => {
   );
 });
 
-Deno.test("ContainerImpl, lifetime singleton", () => {
+Deno.test("createContainer, lifetime singleton", () => {
   class BindClass {}
   class ResolveClass {}
 
-  const container = new ContainerImpl();
+  const container = createContainer();
 
   container.bind(BindClass).lifetime(Lifetime.Singleton);
   container.resolver(ResolveClass, () => new ResolveClass()).lifetime(
@@ -582,13 +582,13 @@ Deno.test("ContainerImpl, lifetime singleton", () => {
   );
 });
 
-Deno.test("ContainerImpl, lifetime scoped", () => {
+Deno.test("createContainer, lifetime scoped", () => {
   class ScopedBindClass {}
   class ScopedResolveClass {}
   class SingletonBindClass {}
   class SingletonResolveClass {}
 
-  const container = new ContainerImpl();
+  const container = createContainer();
 
   container.bind(ScopedBindClass).lifetime(Lifetime.Scoped);
   container.resolver(ScopedResolveClass, () => new ScopedResolveClass())
@@ -624,8 +624,8 @@ Deno.test("ContainerImpl, lifetime scoped", () => {
   }
 });
 
-Deno.test("ContainerImpl, lifetime scoped, split container space", () => {
-  const container = new ContainerImpl();
+Deno.test("createContainer, lifetime scoped, split container space", () => {
+  const container = createContainer();
 
   {
     class BindClass {}
