@@ -207,6 +207,41 @@ Deno.test("createContainer, resolve with inject", () => {
   assertInstanceOf(connection.driver, Driver);
 });
 
+Deno.test("createContainer, resolve with inject from parent", () => {
+  const container = createContainer();
+
+  class Driver {
+  }
+
+  class Connection {
+    @Inject(Driver)
+    driver!: Driver;
+
+    @Inject("CONNECTION_TIMEOUT")
+    timeout!: number;
+  }
+
+  class DatabaseConnection extends Connection {
+    @Inject("DB_CONNECTION_TIMEOUT")
+    declare timeout: number;
+  }
+
+  container.value("CONNECTION_TIMEOUT", 1000);
+  container.value("DB_CONNECTION_TIMEOUT", 2000);
+  container.bind(Driver);
+  container.bind(Connection, DatabaseConnection);
+
+  const driver = container.resolve(Driver);
+  const connection = container.resolve(Connection);
+
+  assertInstanceOf(driver, Driver);
+  assertInstanceOf(connection, DatabaseConnection);
+  assertInstanceOf(connection, Connection);
+
+  assertInstanceOf(connection.driver, Driver);
+  assertStrictEquals(connection.timeout, 2000); // override
+});
+
 Deno.test("createContainer, run create (factory)", () => {
   const container = createContainer();
 
