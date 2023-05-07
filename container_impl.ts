@@ -42,12 +42,15 @@ export class ContainerImpl extends Container {
     value: MaybePromise<T>,
   ): void {
     this.delete(id);
-    const provider: Provider<T> = {
-      resolver: () => value,
-      lifetime: Lifetime.Singleton,
-      afterHandlers: [],
-    };
-    this._providers.set(id, provider);
+    if (value instanceof Promise) {
+      this._providers.set(id, {
+        resolver: () => value,
+        lifetime: Lifetime.Singleton,
+        afterHandlers: [],
+      });
+    } else {
+      this._values.set(id, value);
+    }
   }
 
   resolver<T>(
