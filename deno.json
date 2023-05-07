@@ -5,14 +5,10 @@
     "@type-challenges/utils": "https://esm.sh/@type-challenges/utils@0.1.1/index.d.ts"
   },
   "lint": {
-    "files": {
-      "exclude": [".npm"]
-    }
+    "exclude": [".npm"]
   },
   "fmt": {
-    "files": {
-      "exclude": [".npm"]
-    }
+    "exclude": [".npm"]
   },
   "tasks": {
     "bench": "deno run --allow-run=deno --allow-write=.benchmark scripts/benchmark.ts",
