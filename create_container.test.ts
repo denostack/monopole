@@ -8,14 +8,16 @@ import {
   assertThrows,
   fail,
 } from "testing/asserts.ts";
+import { assertSpyCall, assertSpyCalls, spy } from "testing/mock.ts";
 
+import { SYMBOL_ROOT_CONTAINER, SYMBOL_SCOPE } from "./constants.ts";
 import { Container } from "./container.ts";
+import { createContainer } from "./create_container.ts";
 import { Inject } from "./decorator/inject.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
+import { Module, ModuleDescriptor } from "./module.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
 import { ConstructType, Lifetime } from "./types.ts";
-import { createContainer } from "./create_container.ts";
-import { SYMBOL_ROOT_CONTAINER, SYMBOL_SCOPE } from "./constants.ts";
 
 async function assertContainerHasSingleton(
   container: Container,
@@ -761,4 +763,55 @@ Deno.test("createContainer, lifetime scoped, split container space", async () =>
     await assertContainerUndefined(container, BindClass);
     await assertContainerUndefined(container, ResolveClass);
   }
+});
+
+Deno.test("createContainer, module", async () => {
+  class Connection {
+    connect() {
+      return Promise.resolve(true);
+    }
+    close() {
+      return Promise.resolve(true);
+    }
+  }
+
+  const connectSpy = spy(Connection.prototype, "connect");
+  const closeSpy = spy(Connection.prototype, "close");
+
+  class TestModule implements Module {
+    provide(container: ModuleDescriptor) {
+      container.bind(Connection);
+    }
+    async boot(container: ModuleDescriptor) {
+      const connection = await container.resolve(Connection);
+      await connection.connect();
+    }
+
+    async close(container: ModuleDescriptor) {
+      const connection = await container.resolve(Connection);
+      await connection.close();
+    }
+  }
+
+  const container = createContainer();
+  container.register(new TestModule());
+
+  assertSpyCalls(connectSpy, 0);
+  assertSpyCalls(closeSpy, 0);
+
+  container.boot();
+  container.boot();
+  await container.boot();
+  await container.boot();
+
+  assertSpyCalls(connectSpy, 1);
+  assertSpyCalls(closeSpy, 0);
+
+  container.close();
+  container.close();
+  await container.close();
+  await container.close();
+
+  assertSpyCalls(connectSpy, 1);
+  assertSpyCalls(closeSpy, 1);
 });
