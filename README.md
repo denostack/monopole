@@ -1,186 +1,255 @@
-# 🦕🥞 Container
+# monopole
 
-Super slim DI(Depdency Injection) container.
+<a href="https://github.com/denostack"><img src="https://raw.githubusercontent.com/denostack/images/main/logo.svg" width="240" /></a>
+
+<p>
+  <a href="https://github.com/denostack/monopole/actions"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/denostack/monopole/ci.yml?branch=main&logo=github&style=flat-square" /></a>
+  <a href="https://codecov.io/gh/denostack/monopole"><img alt="Coverage" src="https://img.shields.io/codecov/c/gh/denostack/monopole?style=flat-square" /></a>
+  <img alt="License" src="https://img.shields.io/npm/l/monopole.svg?style=flat-square" />
+  <img alt="Language Typescript" src="https://img.shields.io/badge/language-Typescript-007acc.svg?style=flat-square" />
+  <br />
+  <a href="https://deno.land/x/monopole"><img alt="deno.land/x/monopole" src="https://img.shields.io/badge/dynamic/json?url=https://api.github.com/repos/denostack/monopole/tags&query=$[0].name&display_name=tag&label=deno.land/x/monopole@&style=flat-square&logo=deno&labelColor=000&color=777" /></a>
+  <a href="https://www.npmjs.com/package/monopole"><img alt="Version" src="https://img.shields.io/npm/v/monopole.svg?style=flat-square&logo=npm" /></a>
+  <a href="https://npmcharts.com/compare/monopole?minimal=true"><img alt="Downloads" src="https://img.shields.io/npm/dt/monopole.svg?style=flat-square" /></a>
+</p>
+
+This library provides a powerful and flexible dependency injection container for
+Deno applications. It allows you to easily manage your application's
+dependencies and their lifetimes. The library offers a variety of features,
+including value bindings, resolvers, aliases, and support for different
+lifetimes (singleton, transient, and scoped).
 
 ## Features
 
-- DI Container
-- Type Perfect
-- No Depdendencies (even reflect_metadata!)
-- Circular Dependency (even self dependency!)
-- Service Provider
+- Value bindings (also support async)
+- Resolver bindings (also support async)
+- Class bindings
+- Alias bindings
+- Inject decorator for resolving dependencies
+- Circular dependency resolution (even self dependency!)
+- Support for **singleton**, **transient**, and **scoped** lifetimes
+- Module
 
-## Getting started
+## Usage
 
-```javascript
-import { container } from "https://deno.land/x/container/mod.ts";
-```
-
-or
-
-```javascript
-import { Container } from "https://deno.land/x/container/mod.ts";
-
-const container = new Container(); // create new one
-```
-
-### Bind value
+### with Deno
 
 ```ts
-// define
-container.instance("instance", { message: "this is instance" });
+import { createContainer } from "https://deno.land/x/monopole/mod.ts";
 
-// use
-container.get<{ message: string }>("instance"); // { message: 'this is instance' }
+const container = createContainer();
 ```
 
-### Bind resolver
+### with Node.js & Browser
+
+**Install**
+
+```bash
+npm install monopole
+```
 
 ```ts
-// define
-container.resolver("resolver", () => {
-  return { message: "this is resolver" };
+import { createContainer } from "monopole";
+
+// Usage is as above :-)
+```
+
+### Value bindings
+
+Value bindings allow you to bind a value directly to a specific key. This is
+useful when you want to store configuration values, pre-built instances, or
+other simple values in the container.
+
+Example:
+
+```ts
+const container = createContainer();
+container.value("message", "hello world!");
+container.value("instance", Promise.resolve({ name: "instance" }));
+
+const message = await container.resolve("message");
+const instance = await container.resolve("instance");
+
+console.log(message); // "hello world!"
+console.log(instance); // { name: "instance" }
+```
+
+### Resolver bindings
+
+Resolver bindings allow you to provide a factory function that will be invoked
+when the dependency is resolved. This is useful when you want to create an
+instance of a class, build an object or return a value based on runtime
+information.
+
+Example:
+
+```ts
+const container = createContainer();
+
+container.resolver("resolver", () => ({ message: "this is resolver" }));
+container.resolver("asyncResolver", async () => {
+  return new Promise((resolve) =>
+    setTimeout(() => resolve({ message: "this is async resolver" }), 50)
+  );
 });
 
-// use
+const resolver = await container.resolve("resolver");
+const asyncResolver = await container.resolve("asyncResolver");
 
-container.get<{ message: string }>("resolver"); // { message: 'this is resolver' }
+console.log(resolver); // { message: "this is resolver" }
+console.log(asyncResolver); // { message: "this is async resolver" }
 ```
 
-### Bind class
+### Class bindings
+
+Class bindings allow you to bind a class constructor to a specific key. When the
+key is resolved, a new instance of the class will be created.
+
+Example:
 
 ```ts
-// define
-class Database {
+class BaseClass {
 }
 
+class MyClass extends BaseClass {
+  constructor() {
+    this.message = "hello world!";
+  }
+}
+
+const container = createContainer();
+container.bind(BaseClass, MyClass);
+
+const instance = await container.resolve(BaseClass);
+
+console.log(instance.message); // "hello world!"
+```
+
+### Alias bindings
+
+Alias bindings allow you to bind one key to another key, effectively creating an
+alias for a value in the container.
+
+Example:
+
+```ts
+const container = createContainer();
+
+container.value("original", "this is the original value");
+container.alias("alias", "original");
+
+const original = await container.resolve("original");
+const alias = await container.resolve("alias");
+
+console.log(original); // "this is the original value"
+console.log(alias); // "this is the original value"
+```
+
+### Inject decorator for resolving dependencies
+
+The `@Inject` decorator is a convenient way to resolve dependencies and inject
+them into a class. This decorator makes it easy to specify which dependencies a
+class requires, while the dependency injection library takes care of the
+underlying instantiation and management of the dependencies.
+
+In the provided example code, a test demonstrates how to use the `@Inject`
+decorator to resolve a dependency for the `Controller` class:
+
+```ts
 class Connection {
-  @Inject("database")
-  database!: Database;
 }
 
-container.bind("database", Database);
-container.bind(Connection); // If the name and class are the same, you only need to define the class.
-
-// use
-
-const connection = container.get(Connection);
-
-console.log(connection); // Connection { database: Database {} }
-console.log(connection.database); // Database {}
-```
-
-### Factory
-
-```ts
 class Controller {
-  @Inject(Connection)
-  connection!: Connection;
+  @Inject("connection")
+  public connection!: Connection;
 }
 
-// without define
+container.bind("connection", Connection);
+container.bind(Controller);
 
-container.create(Controller); // Controller { connection: Connection {} }
+const controller = await container.resolve(Controller);
+
+controller.connection instanceof Connection; // true
 ```
 
-## Advanced Usage
+### Circular dependency resolution
 
-### Service Provider
+Circular dependency resolution Circular dependency resolution is a feature of
+the dependency injection library that allows you to handle cases where two or
+more classes depend on each other. This feature is useful in scenarios where
+classes have a mutual relationship, such as parent-child or sibling
+relationships. The library can resolve these circular dependencies
+automatically, ensuring that the correct instances are injected into the
+appropriate classes.
 
-```ts
-export class DatabaseProvider implements Provider {
-  register(app: ProviderDescriptor) {
-    const DB_HOST = Deno.env.get("DB_HOST") ?? "localhost";
-    const DB_DATABASE = Deno.env.get("DB_DATABASE") ?? "test";
-    const DB_USERNAME = Deno.env.get("DB_USERNAME") ?? "root";
-    const DB_PASSWORD = Deno.env.get("DB_PASSWORD") ?? "root";
-
-    app.resolver("database", () => {
-      return new MySQLDatabase({
-        host: DB_HOST,
-        database: DB_DATABASE,
-        username: DB_USERNAME,
-        password: DB_PASSWORD,
-      });
-    });
-    app.bind(Connection);
-  }
-
-  close(app: ProviderDescriptor) {
-    const connection = app.get(Connection);
-    connection.close();
-  }
-}
-```
-
-controller
+In the example test code provided, a circular dependency is created between the
+`Parent` and `Child` classes. Each class has an `@Inject` decorator on a
+property, indicating that it should be injected with an instance of the other
+class:
 
 ```ts
-export class UserController {
-  @Inject(Connection)
-  connection!: Connection;
+const container = createContainer();
 
-  @Inject(Connection, (conn) => conn.getRepository(User))
-  repoUsers!: Repository<User>;
-}
-```
-
-`entry.ts`
-
-```ts
-container.register(new DatabaseProvider());
-
-await container.boot();
-
-const controller = container.create(UserController);
-
-await container.close();
-```
-
-### Circular Dependencis
-
-```ts
-class A {
-  @Inject("b")
-  public b!: B;
+class Parent {
+  @Inject("child")
+  public child!: Child;
 }
 
-class B {
-  @Inject("a")
-  public a!: A;
+class Child {
+  @Inject("parent")
+  public parent!: Parent;
 }
 
-container.bind("a", A);
-container.bind("b", B);
+container.bind("parent", Parent);
+container.bind("child", Child);
 
 // assert
-const instA = container.get<A>("a");
-const instB = container.get<B>("b");
+const parent = await container.resolve<Parent>("parent");
+const child = await container.resolve<Child>("child");
 
-assertEquals(instA instanceof A, true);
-assertEquals(instB instanceof B, true);
-
-assertStrictEquals(instA.b, instB);
-assertStrictEquals(instB.a, instA);
+console.log(parent.child === child); // true
+console.log(child.parent === parent); // true
 ```
 
-### Promise
+### Support for singleton, transient, and scoped lifetimes
+
+The container supports different lifetimes for bindings:
+
+- **Singleton**: The instance will be created once and reused for all subsequent
+  resolutions.
+- **Transient**: A new instance will be created for each resolution.
+- **Scoped**: The instance will be created once per scope.
+
+Example:
 
 ```ts
-container.instance("instance", Promise.resolve({ name: "instance" }));
-container.resolver("resolver", () => {
-  return Promise.resolve({ name: "resolver" });
-});
+class SingletonClass {}
+class TransientClass {}
+class ScopedClass {}
 
-const promiseInstance = container.get("instance");
-const promiseResolver = container.get("resolver");
+const container = createContainer();
 
-assertEquals(promiseInstance instanceof Promise, true);
-assertEquals(promiseResolver instanceof Promise, true);
+container.bind(SingletonClass).lifetime(Lifetime.Singleton);
+container.bind(TransientClass).lifetime(Lifetime.Transient);
+container.bind(ScopedClass).lifetime(Lifetime.Scoped);
 
-// after boot, resolve the promise
-await container.boot();
+// Singleton example
+const singleton1 = await container.resolve(SingletonClass);
+const singleton2 = await container.resolve(SingletonClass);
+console.log(singleton1 === singleton2); // true
 
-assertEquals(container.get("instance"), { name: "instance" });
-assertEquals(container.get("resolver"), { name: "resolver" });
+// Transient example
+const transient1 = await container.resolve(TransientClass);
+const transient2 = await container.resolve(TransientClass);
+console.log(transient1 === transient2); // false
+
+// Scoped example
+const scopedContainer = await container.scope();
+const scoped1 = await scopedContainer.resolve(ScopedClass);
+const scoped2 = await scopedContainer.resolve(ScopedClass);
+console.log(scoped1 === scoped2); // true
 ```
+
+### Module
+
+(TODO)
