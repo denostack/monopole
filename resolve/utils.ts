@@ -1,5 +1,5 @@
 import { Container } from "../container.ts";
-import { all, chain } from "../maybe_promise.ts";
+import { chain } from "../maybe_promise.ts";
 import { metadata, MetadataInjectProp } from "../metadata.ts";
 import { AfterResolveHandler, MaybePromise } from "../types.ts";
 
@@ -28,24 +28,22 @@ export function afterResolve<T>(
 export function injectProperties<T>(
   value: T,
   container: Container,
-): MaybePromise<T> {
+): Promise<T> {
   if (!isObject(value)) {
-    return value;
+    return Promise.resolve(value);
   }
   const properties = findAllInject<T>(value);
-  return all(properties.map(({ id, property, transformer }) => {
-    return chain(container.resolve(id)).next((resolved) => {
-      return {
-        property,
-        dependency: (transformer?.(resolved) ?? resolved) as T[keyof T],
-      };
-    }).value();
-  })).next((deps) => {
+  return Promise.all(properties.map(({ id, property, transformer }) => {
+    return container.resolve(id).then((resolved) => ({
+      property,
+      dependency: (transformer?.(resolved) ?? resolved) as T[keyof T],
+    }));
+  })).then((deps) => {
     for (const { property, dependency } of deps) {
       (value as T)[property] = dependency;
     }
     return value;
-  }).value();
+  });
 }
 
 // deno-lint-ignore ban-types

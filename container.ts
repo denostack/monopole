@@ -24,17 +24,17 @@ export abstract class Container implements ModuleDescriptor {
     id: ServiceIdentifier<T>,
     target: ServiceIdentifier<T>,
   ): void;
-  abstract resolve<T>(id: ServiceIdentifier<T>): MaybePromise<T>;
+  abstract resolve<T>(id: ServiceIdentifier<T>): Promise<T>;
 
-  abstract create<T>(ctor: ConstructType<T>): MaybePromise<T>;
+  abstract create<T>(ctor: ConstructType<T>): Promise<T>;
   abstract has<T>(id: ServiceIdentifier<T>): boolean;
 
   abstract get<T>(id: ServiceIdentifier<T>): T;
 
   abstract register(module: Module): void;
-  abstract boot(): MaybePromise<void>;
-  abstract close(): MaybePromise<void>;
+  abstract boot(): Promise<void>;
+  abstract close(): Promise<void>;
 
   // deno-lint-ignore ban-types
-  abstract scope(target?: object): Container;
+  abstract scope(target?: object): Promise<Container>;
 }

@@ -1,8 +1,9 @@
+import { SYMBOL_ROOT_CONTAINER, SYMBOL_SCOPE } from "./constants.ts";
 import { Container } from "./container.ts";
 import { ContainerFluent } from "./container_fluent.ts";
 import { FrozenError } from "./error/frozen_error.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
-import { all, chain } from "./maybe_promise.ts";
+import { promisify } from "./maybe_promise.ts";
 import { Module } from "./module.ts";
 import { Provider } from "./provider.ts";
 import { ProviderDescriptor } from "./provider_descriptor.ts";
@@ -24,17 +25,17 @@ export class ContainerImpl extends Container {
   _aliases = new Map<ServiceIdentifier<any>, ServiceIdentifier<any>>();
 
   // deno-lint-ignore ban-types
-  _scopes = new WeakMap<object, ContainerImpl>();
+  _scopes = new WeakMap<object, Promise<Container>>();
 
   _booted = false;
-  _booting?: MaybePromise<void>; // booting promise (promise lock)
-  _closing?: MaybePromise<void>; // closing promise (promise lock)
+  _booting?: Promise<void>; // booting promise (promise lock)
+  _closing?: Promise<void>; // closing promise (promise lock)
 
   constructor(root?: ContainerImpl) {
     super();
     this._root = root;
     this._values.set(Container, this);
-    this._values.set("@", root ?? this);
+    this._values.set(SYMBOL_ROOT_CONTAINER, root ?? this);
   }
 
   value<T>(
@@ -95,11 +96,11 @@ export class ContainerImpl extends Container {
     return this;
   }
 
-  create<T>(Ctor: ConstructType<T>): MaybePromise<T> {
+  create<T>(Ctor: ConstructType<T>): Promise<T> {
     return injectProperties<T>(new Ctor(), this);
   }
 
-  resolve<T>(id: ServiceIdentifier<T>): MaybePromise<T> {
+  resolve<T>(id: ServiceIdentifier<T>): Promise<T> {
     const aliasStack: ServiceIdentifier<unknown>[] = [];
     let aliasId: ServiceIdentifier<unknown> | undefined = id;
     while ((aliasId = this._aliases.get(id))) {
@@ -108,7 +109,7 @@ export class ContainerImpl extends Container {
     }
     const value = this._values.get(id);
     if (value) {
-      return value;
+      return Promise.resolve(value);
     }
     const provider = this._providers.get(id);
     if (!provider) {
@@ -126,11 +127,17 @@ export class ContainerImpl extends Container {
   }
 
   get<T>(id: ServiceIdentifier<T>): T {
+    const aliasStack: ServiceIdentifier<unknown>[] = [];
+    let aliasId: ServiceIdentifier<unknown> | undefined = id;
+    while ((aliasId = this._aliases.get(id))) {
+      aliasStack.push(id);
+      id = aliasId as ServiceIdentifier<T>;
+    }
     const value = this._values.get(id);
     if (value) {
       return value;
     }
-    throw new UndefinedError(id);
+    throw new UndefinedError(id, aliasStack);
   }
 
   has<T>(id: ServiceIdentifier<T>): boolean {
@@ -153,89 +160,96 @@ export class ContainerImpl extends Container {
     this._aliases.delete(id);
   }
 
-  boot(): MaybePromise<void> {
+  boot(): Promise<void> {
     if (this._booted) {
-      return;
+      return Promise.resolve();
     }
-    if (this._booting) {
-      return this._booting;
+    if (!this._booting) {
+      this._booting = new Promise((resolve) => {
+        const modules = [...this._modules];
+        modules.forEach((m) => m.provide?.(this)); // provide is sync
+        Promise.all(modules.map((m) => m.boot?.(this)))
+          .then(() => {
+            let providerEntries = [...this._providers.entries()];
+            if (this._root) {
+              // scoped container
+              providerEntries = providerEntries.filter(([, provider]) =>
+                provider.lifetime === Lifetime.Singleton ||
+                provider.lifetime === Lifetime.Scoped
+              );
+            } else {
+              // root container
+              providerEntries = providerEntries.filter(([, provider]) =>
+                provider.lifetime === Lifetime.Singleton
+              );
+            }
+            return Promise.all(
+              providerEntries.map(([id, provider]) =>
+                this._resolveProvider(provider).then(
+                  (v) => this._values.set(id, v),
+                )
+              ),
+            );
+          })
+          .then(() => {
+            this._booted = true;
+            resolve();
+          });
+      });
     }
-
-    const modules = [...this._modules];
-
-    modules.forEach((m) => m.provide?.(this));
-
-    this._booting = all(modules.map((m) => m.boot?.(this)))
-      .next(() => {
-        let providerEntries = [...this._providers.entries()];
-        if (this._root) {
-          // scoped container
-          providerEntries = providerEntries.filter(([, provider]) =>
-            provider.lifetime === Lifetime.Singleton ||
-            provider.lifetime === Lifetime.Scoped
-          );
-        } else {
-          // root container
-          providerEntries = providerEntries.filter(([, provider]) =>
-            provider.lifetime === Lifetime.Singleton
-          );
-        }
-        return all(
-          providerEntries.map(([id, provider]) =>
-            chain(this._resolveProvider(provider)).next(
-              (v) => this._values.set(id, v),
-            ).value()
-          ),
-        ).value();
-      })
-      .next(() => {
-        this._booted = true;
-      })
-      .value();
 
     return this._booting;
   }
 
-  close(): MaybePromise<void> {
+  close(): Promise<void> {
     if (!this._booted) {
-      return;
+      return Promise.resolve();
     }
-    if (this._closing) {
-      return this._closing;
+    if (!this._closing) {
+      const modules = [...this._modules];
+
+      this._closing = new Promise((resolve) => {
+        (this._booting ?? Promise.resolve())
+          .then(() => Promise.all(modules.map((m) => m.close?.(this))))
+          .then(() => {
+            this._values.clear();
+            delete this._closing;
+            delete this._booting;
+            this._booted = false;
+            resolve();
+          });
+      });
     }
-
-    const modules = [...this._modules];
-
-    this._closing = chain(this._booting)
-      .next(() => all(modules.map((m) => m.close?.(this))))
-      .next(() => {
-        this._values.clear();
-        delete this._closing;
-        delete this._booting;
-        this._booted = false;
-      })
-      .value();
 
     return this._closing;
   }
 
   // deno-lint-ignore ban-types
-  scope(target: object = {}): Container {
+  scope(target: object = {}): Promise<Container> {
     if (!this._scopes.has(target)) {
-      const container = new ContainerImpl(this._root ?? this);
-      container._providers = new Map(this._providers.entries());
-      this._scopes.set(target, container);
+      this._scopes.set(
+        target,
+        new Promise<Container>((resolve) => {
+          const container = new ContainerImpl(this._root ?? this);
+          container._providers = new Map(this._providers.entries());
+          container._aliases = new Map(this._aliases.entries());
+          container.value(SYMBOL_SCOPE, target);
+          container.boot().then(() => {
+            resolve(container);
+          });
+        }),
+      );
     }
     return this._scopes.get(target)!;
   }
 
-  _resolveProvider<T>(provider: Provider<T>): MaybePromise<T> {
+  _resolveProvider<T>(provider: Provider<T>): Promise<T> {
     if (provider.lifetime === Lifetime.Transient) {
       return resolveTransient(this, provider);
     }
     const baseContainer = provider.lifetime === Lifetime.Singleton && this._root
       ? this._root
       : this;
-    return resolveSingleton(baseContainer, provider);
+    return promisify(resolveSingleton(baseContainer, provider));
   }
 }

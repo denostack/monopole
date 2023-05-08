@@ -26,10 +26,10 @@ export function chain(
   };
 }
 
-export function all<T>(values: MaybePromise<T>[]): MaybePromiseChain<T[]> {
-  if (values.some((value) => value instanceof Promise)) {
-    return chain(Promise.all(values));
+export function promisify<T>(value: MaybePromise<T>): Promise<T> {
+  if (value instanceof Promise) {
+    return value;
   } else {
-    return chain(values as T[]);
+    return Promise.resolve(value);
   }
 }
