@@ -302,28 +302,28 @@ Deno.test("createContainer, run create (factory)", async () => {
 Deno.test("createContainer, resolve circular dependency bind", async () => {
   const container = createContainer();
 
-  class A {
-    @Inject("b")
-    public b!: B;
+  class Parent {
+    @Inject("child")
+    public child!: Child;
   }
 
-  class B {
-    @Inject("a")
-    public a!: A;
+  class Child {
+    @Inject("parent")
+    public parent!: Parent;
   }
 
-  container.bind("a", A);
-  container.bind("b", B);
+  container.bind("parent", Parent);
+  container.bind("child", Child);
 
   // assert
-  const instA = await container.resolve<A>("a");
-  const instB = await container.resolve<B>("b");
+  const parent = await container.resolve<Parent>("parent");
+  const child = await container.resolve<Child>("child");
 
-  assertInstanceOf(instA, A);
-  assertInstanceOf(instB, B);
+  assertInstanceOf(parent, Parent);
+  assertInstanceOf(child, Child);
 
-  assertStrictEquals(instA.b, instB);
-  assertStrictEquals(instB.a, instA);
+  assertStrictEquals(parent.child, child);
+  assertStrictEquals(child.parent, parent);
 });
 
 Deno.test("createContainer, resolve self dependency bind", async () => {
