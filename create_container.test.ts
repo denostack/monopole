@@ -15,7 +15,7 @@ import { UndefinedError } from "./error/undefined_error.ts";
 import { ServiceIdentifier } from "./service_identifier.ts";
 import { ConstructType, Lifetime } from "./types.ts";
 import { createContainer } from "./create_container.ts";
-import { SYMBOL_ROOT_CONTAINER } from "./constants.ts";
+import { SYMBOL_ROOT_CONTAINER, SYMBOL_SCOPE } from "./constants.ts";
 
 async function assertContainerHasSingleton(
   container: Container,
@@ -690,6 +690,8 @@ Deno.test("createContainer, lifetime singleton", async () => {
 });
 
 Deno.test("createContainer, lifetime scoped", async () => {
+  class Scoping {}
+
   class ScopedBindClass {}
   class ScopedResolveClass {}
   class SingletonBindClass {}
@@ -707,14 +709,21 @@ Deno.test("createContainer, lifetime scoped", async () => {
     .lifetime(
       Lifetime.Singleton,
     );
+  container.alias(Scoping, SYMBOL_SCOPE);
 
   // singleton!
   await assertContainerHasSingleton(container, ScopedBindClass);
   await assertContainerHasSingleton(container, ScopedResolveClass);
 
   {
-    const scopedContainer = await container.scope();
+    const scoping = new Scoping();
 
+    const scopedContainer = await container.scope(scoping);
+
+    assertStrictEquals(scopedContainer, await container.scope(scoping)); // multiple, same container
+
+    assertStrictEquals(scopedContainer.get(Scoping), scoping);
+    assertStrictEquals(scopedContainer.get(SYMBOL_SCOPE), scoping);
     await assertContainerHasSingleton(scopedContainer, ScopedBindClass);
     await assertContainerHasSingleton(scopedContainer, ScopedResolveClass);
 
