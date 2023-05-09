@@ -29,6 +29,7 @@ lifetimes (singleton, transient, and scoped).
 - Circular dependency resolution (even self dependency!)
 - Support for **singleton**, **transient**, and **scoped** lifetimes
 - Module
+- Bootstrap
 
 ## Usage
 
@@ -297,6 +298,41 @@ await container.close();
 To use a module, simply create a new instance of it and register it with the
 container using the `register` method. The module's `provide`, `boot`, and
 `close` methods will be called automatically during the container's lifecycle.
+
+### Bootstrap
+
+In this guide, we'll explore the boot process in detail and demonstrate how it
+enables you to access all objects via `get` without promises. We'll also show
+how the module's boot method is executed during this process.
+
+Check out the example below:
+
+```ts
+const container = createContainer();
+
+container.value("value", Promise.resolve("by value"));
+container.resolver("resolver", async () => "by resolver");
+container.alias("alias.value", "value");
+container.alias("alias.resolver", "resolver");
+
+await container.boot();
+
+container.get("value") === "by value"; // true
+container.get("resolver") === "by resolver"; // true
+container.get("alias.value") === "by value"; // true
+container.get("alias.resolver") === "by resolver"; // true
+```
+
+During the execution of the boot method, the following internal steps are
+performed:
+
+1. The registered modules are read and their `provide` methods are executed.
+2. The `boot` method of each registered module is executed.
+3. All registered singleton and scoped objects are created and stored within the
+   container.
+
+This process ensures that all dependencies are properly initialized and
+available for use throughout your application.
 
 ## Example
 

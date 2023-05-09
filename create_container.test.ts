@@ -368,6 +368,23 @@ Deno.test("createContainer, boot", async () => {
   assertEquals(countCallBoot, 1);
 });
 
+Deno.test("createContainer, after boot Making all objects available without a promise", async () => {
+  const container = createContainer();
+
+  container.value("value", Promise.resolve("by value"));
+  // deno-lint-ignore require-await
+  container.resolver("resolver", async () => "by resolver");
+  container.alias("alias.value", "value");
+  container.alias("alias.resolver", "resolver");
+
+  await container.boot();
+
+  assertEquals(container.get("value"), "by value");
+  assertEquals(container.get("resolver"), "by resolver");
+  assertEquals(container.get("alias.value"), "by value");
+  assertEquals(container.get("alias.resolver"), "by resolver");
+});
+
 Deno.test("createContainer, close", async () => {
   const container = createContainer();
 
