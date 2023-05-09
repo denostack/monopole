@@ -1,5 +1,6 @@
 import { MaybePromise } from "./types.ts";
 
+/** @internal */
 export interface MaybePromiseChain<T> {
   next<TNext>(
     next: (value: T) => MaybePromise<TNext>,
@@ -7,6 +8,7 @@ export interface MaybePromiseChain<T> {
   value(): MaybePromise<T>;
 }
 
+/** @internal */
 export function chain(): MaybePromiseChain<void>;
 export function chain<T>(value: MaybePromise<T>): MaybePromiseChain<T>;
 export function chain(
@@ -26,6 +28,7 @@ export function chain(
   };
 }
 
+/** @internal */
 export function promisify<T>(value: MaybePromise<T>): Promise<T> {
   if (value instanceof Promise) {
     return value;
