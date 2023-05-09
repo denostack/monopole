@@ -252,4 +252,53 @@ console.log(scoped1 === scoped2); // true
 
 ### Module
 
-(TODO)
+Modules offer a convenient way to organize and manage dependencies in your
+application. By separating concerns, they help make your code more modular and
+maintainable.
+
+In the following example, a `ConnectionModule` is created that provides a
+`Connection` class and handles connecting and closing the connection during the
+boot and close phases of the application lifecycle.
+
+```ts
+class Connection {
+  connect(): Promise<void>;
+  close(): Promise<void>;
+}
+
+class ConnectionModule implements Module {
+  provide(container: ModuleDescriptor) {
+    container.bind(Connection);
+  }
+
+  async boot(container: ModuleDescriptor) {
+    const connection = await container.resolve(Connection);
+    await connection.connect();
+  }
+
+  async close(container: ModuleDescriptor) {
+    const connection = await container.resolve(Connection);
+    await connection.close();
+  }
+}
+
+const container = createContainer();
+
+container.register(new ConnectionModule());
+
+await container.boot();
+
+/* ... */
+
+// When the application is shutting down
+await container.close();
+```
+
+To use a module, simply create a new instance of it and register it with the
+container using the `register` method. The module's `provide`, `boot`, and
+`close` methods will be called automatically during the container's lifecycle.
+
+## Example
+
+- [Deno Web Server Example](./example/deno-http-server) Set up and run a web
+  application using DI with modular architecture.
