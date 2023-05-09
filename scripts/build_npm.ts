@@ -1,15 +1,10 @@
 import { build, emptyDir } from "dnt/mod.ts";
 import { bgGreen } from "fmt/colors.ts";
 
-const cmd = new Deno.Command("git", {
-  args: ["describe", "--tags", "--abbrev=0"],
-  stdout: "piped",
-  stderr: "piped",
-});
-
-const commandOutput = await cmd.spawn().output();
-
-const version = new TextDecoder().decode(commandOutput.stdout).trim();
+const denoInfo = JSON.parse(
+  Deno.readTextFileSync(new URL("../deno.json", import.meta.url)),
+);
+const version = denoInfo.version;
 
 console.log(bgGreen(`version: ${version}`));
 
@@ -29,7 +24,7 @@ await build({
     name: "monopole",
     version,
     description:
-      "Efficiently manage dependencies with a flexible container, featuring value bindings, resolvers, aliases, and support for singleton, transient, and scoped lifetimes.",
+      "A versatile dependency injection container with features like value bindings, resolvers, aliases, and support for singleton, transient, and scoped lifetimes.",
     keywords: [
       "di",
       "ioc",
@@ -37,6 +32,8 @@ await build({
       "container",
       "scoped-lifetimes",
       "circular-dependency",
+      "scoped",
+      "lifecycle",
     ],
     license: "MIT",
     repository: {
