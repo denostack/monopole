@@ -8,7 +8,7 @@ import {
   assertThrows,
   fail,
 } from "testing/asserts.ts";
-import { assertSpyCall, assertSpyCalls, spy } from "testing/mock.ts";
+import { assertSpyCalls, spy } from "testing/mock.ts";
 
 import { SYMBOL_ROOT_CONTAINER, SYMBOL_SCOPE } from "./constants.ts";
 import { Container } from "./container.ts";
