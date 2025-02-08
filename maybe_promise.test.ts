@@ -1,4 +1,4 @@
-import { assertEquals, assertInstanceOf } from "testing/asserts.ts";
+import { assertEquals, assertInstanceOf } from "@std/assert";
 import { chain } from "./maybe_promise.ts";
 
 function asyncValue<T>(value: T, ms = 100): Promise<T> {

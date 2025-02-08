@@ -1,4 +1,4 @@
-import { Container } from "./container.ts";
+import type { Container } from "./container.ts";
 import { ContainerImpl } from "./container_impl.ts";
 
 export function createContainer(): Container {

@@ -1,4 +1,4 @@
-import { Lifetime, MaybePromise } from "./types.ts";
+import type { Lifetime, MaybePromise } from "./types.ts";
 
 export interface ContainerFluent<T> {
   after(handler: (value: T) => MaybePromise<void>): ContainerFluent<T>;

@@ -1,6 +1,6 @@
-import { ContainerFluent } from "./container_fluent.ts";
-import { Provider } from "./provider.ts";
-import { Lifetime, MaybePromise } from "./types.ts";
+import type { ContainerFluent } from "./container_fluent.ts";
+import type { Provider } from "./provider.ts";
+import type { Lifetime, MaybePromise } from "./types.ts";
 
 /** @internal */
 export class ProviderDescriptor<T> implements ContainerFluent<T> {

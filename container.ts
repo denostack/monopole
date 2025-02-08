@@ -1,8 +1,8 @@
-import { ContainerFluent } from "./container_fluent.ts";
+import type { ContainerFluent } from "./container_fluent.ts";
 
-import { Module, ModuleDescriptor } from "./module.ts";
-import { ServiceIdentifier } from "./service_identifier.ts";
-import { ConstructType, MaybePromise, Resolver } from "./types.ts";
+import type { Module, ModuleDescriptor } from "./module.ts";
+import type { ServiceIdentifier } from "./service_identifier.ts";
+import type { ConstructType, MaybePromise, Resolver } from "./types.ts";
 
 export abstract class Container implements ModuleDescriptor {
   abstract value<T>(
@@ -35,6 +35,5 @@ export abstract class Container implements ModuleDescriptor {
   abstract boot(): Promise<void>;
   abstract close(): Promise<void>;
 
-  // deno-lint-ignore ban-types
   abstract scope(target?: object): Promise<Container>;
 }

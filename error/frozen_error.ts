@@ -1,4 +1,4 @@
-import { ServiceIdentifier, toString } from "../service_identifier.ts";
+import { type ServiceIdentifier, toString } from "../service_identifier.ts";
 
 export class FrozenError extends Error {
   constructor(

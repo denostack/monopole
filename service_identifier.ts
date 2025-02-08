@@ -1,4 +1,4 @@
-import { AbstractType, ConstructType } from "./types.ts";
+import type { AbstractType, ConstructType } from "./types.ts";
 
 export type ServiceIdentifier<T> =
   | ConstructType<T>

@@ -1,39 +1,36 @@
-import { metadata, MetadataInjectProp } from "../metadata.ts";
-import { ServiceIdentifier } from "../service_identifier.ts";
-import { ConstructType } from "../types.ts";
+import {
+  type ClassMetadataStorage,
+  createClassMetadataStorage,
+  type MetadataInjectProp,
+} from "../metadata.ts";
+import type { ServiceIdentifier } from "../service_identifier.ts";
+import { monopole } from "../symbols.ts";
 
-// TODO Ecma Proposal Decorators
-export function Inject<T>(
+export function inject<T>(
   id: ServiceIdentifier<T>,
   transformer?: (instance: T) => unknown,
-): PropertyDecorator {
-  // deno-lint-ignore ban-types
-  return (target: Object, property: string | symbol) => {
-    defineInject(
-      target.constructor as ConstructType<T>,
-      property as keyof T,
-      id,
-      transformer,
-    );
+): (
+  _: undefined,
+  ctx: ClassFieldDecoratorContext,
+) => void {
+  return (_: undefined, ctx: ClassFieldDecoratorContext) => {
+    const storage = ctx.metadata[monopole] =
+      ctx.metadata[monopole] as ClassMetadataStorage<T> ||
+      createClassMetadataStorage<T>();
+
+    defineInject<T>(storage, ctx.name as keyof T, id, transformer);
   };
 }
 
 export function defineInject<T>(
-  target: ConstructType<T>,
+  storage: ClassMetadataStorage<T>,
   property: keyof T,
   id: ServiceIdentifier<T>,
   transformer?: (instance: T) => unknown,
 ) {
-  const metaInject = metadata.inject;
-  let injectProps = metaInject.get(target);
-  if (!injectProps) {
-    injectProps = [];
-    metaInject.set(target, injectProps);
-  }
-  injectProps.push({
-    target,
+  storage.injectProps.push({
     property,
     id,
     transformer,
-  } as MetadataInjectProp<unknown>);
+  } as MetadataInjectProp<T>);
 }

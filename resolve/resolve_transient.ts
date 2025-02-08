@@ -1,6 +1,6 @@
-import { Container } from "../container.ts";
+import type { Container } from "../container.ts";
 import { promisify } from "../maybe_promise.ts";
-import { Provider } from "../provider.ts";
+import type { Provider } from "../provider.ts";
 import { afterResolve, injectProperties } from "./utils.ts";
 
 export function resolveTransient<T>(

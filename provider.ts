@@ -1,4 +1,4 @@
-import { AfterResolveHandler, Lifetime, Resolver } from "./types.ts";
+import type { AfterResolveHandler, Lifetime, Resolver } from "./types.ts";
 
 /** @internal */
 export interface Provider<T> {

@@ -7,17 +7,17 @@ import {
   assertStrictEquals,
   assertThrows,
   fail,
-} from "testing/asserts.ts";
-import { assertSpyCalls, spy } from "testing/mock.ts";
+} from "@std/assert";
+import { assertSpyCalls, spy } from "@std/testing/mock";
 
 import { SYMBOL_ROOT_CONTAINER, SYMBOL_SCOPE } from "./constants.ts";
 import { Container } from "./container.ts";
 import { createContainer } from "./create_container.ts";
-import { Inject } from "./decorator/inject.ts";
+import { inject } from "./decorator/inject.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
-import { Module, ModuleDescriptor } from "./module.ts";
-import { ServiceIdentifier } from "./service_identifier.ts";
-import { ConstructType, Lifetime } from "./types.ts";
+import type { Module, ModuleDescriptor } from "./module.ts";
+import type { ServiceIdentifier } from "./service_identifier.ts";
+import { type ConstructType, Lifetime } from "./types.ts";
 
 async function assertContainerHasSingleton(
   container: Container,
@@ -220,7 +220,7 @@ Deno.test("createContainer, resolve with inject", async () => {
   }
 
   class Connection {
-    @Inject(Driver)
+    @inject(Driver)
     driver!: Driver;
   }
 
@@ -249,16 +249,16 @@ Deno.test("createContainer, resolve with inject from parent", async () => {
   }
 
   class Connection {
-    @Inject(Driver)
+    @inject(Driver)
     driver!: Driver;
 
-    @Inject("CONNECTION_TIMEOUT")
+    @inject("CONNECTION_TIMEOUT")
     timeout!: number;
   }
 
   class DatabaseConnection extends Connection {
-    @Inject("DB_CONNECTION_TIMEOUT")
-    declare timeout: number;
+    @inject("DB_CONNECTION_TIMEOUT")
+    override timeout: number = -1;
   }
 
   container.value("CONNECTION_TIMEOUT", 1000);
@@ -284,7 +284,7 @@ Deno.test("createContainer, run create (factory)", async () => {
   }
 
   class Controller {
-    @Inject("connection")
+    @inject("connection")
     public connection!: Connection;
   }
 
@@ -305,12 +305,12 @@ Deno.test("createContainer, resolve circular dependency bind", async () => {
   const container = createContainer();
 
   class Parent {
-    @Inject("child")
+    @inject("child")
     public child!: Child;
   }
 
   class Child {
-    @Inject("parent")
+    @inject("parent")
     public parent!: Parent;
   }
 
@@ -332,13 +332,13 @@ Deno.test("createContainer, resolve self dependency bind", async () => {
   const container = createContainer();
 
   class SelfDependency {
-    @Inject(SelfDependency)
+    @inject("self")
     public self!: SelfDependency;
   }
 
-  container.bind(SelfDependency);
+  container.bind("self", SelfDependency);
 
-  const value = await container.resolve(SelfDependency);
+  const value = await container.resolve<SelfDependency>("self");
 
   assertInstanceOf(value, SelfDependency);
 

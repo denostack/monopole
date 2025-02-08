@@ -1,7 +1,7 @@
-import { Container } from "../container.ts";
+import type { Container } from "../container.ts";
 import { chain } from "../maybe_promise.ts";
-import { Provider } from "../provider.ts";
-import { MaybePromise } from "../types.ts";
+import type { Provider } from "../provider.ts";
+import type { MaybePromise } from "../types.ts";
 import { afterResolve, injectProperties } from "./utils.ts";
 
 const resolvedCache = new WeakMap<Container, Map<Provider<unknown>, unknown>>();

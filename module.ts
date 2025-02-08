@@ -1,4 +1,4 @@
-import { ServiceIdentifier } from "./service_identifier.ts";
+import type { ServiceIdentifier } from "./service_identifier.ts";
 import type { ConstructType, MaybePromise } from "./types.ts";
 
 export interface Module {

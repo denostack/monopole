@@ -1,7 +1,8 @@
-import { Container } from "../container.ts";
+import type { Container } from "../container.ts";
 import { chain } from "../maybe_promise.ts";
-import { metadata, MetadataInjectProp } from "../metadata.ts";
-import { AfterResolveHandler, MaybePromise } from "../types.ts";
+import type { ClassMetadataStorage, MetadataInjectProp } from "../metadata.ts";
+import { monopole } from "../symbols.ts";
+import type { AfterResolveHandler, MaybePromise } from "../types.ts";
 
 const ignoreCtors = new Set([
   Object,
@@ -46,13 +47,15 @@ export function injectProperties<T>(
   });
 }
 
-// deno-lint-ignore ban-types
 function findAllInject<T>(value: object) {
   const properties: MetadataInjectProp<T>[] = [];
   const alreadyDefinedProperties = new Set<PropertyKey>();
   let ctor = value.constructor;
   while (!ignoreCtors.has(ctor)) {
-    const props = metadata.inject.get(ctor);
+    const metadataStorage = ctor[Symbol.metadata]?.[monopole] as
+      | ClassMetadataStorage<T>
+      | undefined;
+    const props = metadataStorage?.injectProps;
     if (props) {
       for (const prop of props) {
         if (alreadyDefinedProperties.has(prop.property)) {
@@ -67,7 +70,6 @@ function findAllInject<T>(value: object) {
   return properties;
 }
 
-// deno-lint-ignore ban-types
 function isObject(value: unknown): value is object {
   return value !== null && typeof value === "object";
 }

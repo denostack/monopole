@@ -1,31 +1,30 @@
 import { SYMBOL_ROOT_CONTAINER, SYMBOL_SCOPE } from "./constants.ts";
 import { Container } from "./container.ts";
-import { ContainerFluent } from "./container_fluent.ts";
+import type { ContainerFluent } from "./container_fluent.ts";
 import { FrozenError } from "./error/frozen_error.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
 import { promisify } from "./maybe_promise.ts";
-import { Module } from "./module.ts";
-import { Provider } from "./provider.ts";
+import type { Module } from "./module.ts";
+import type { Provider } from "./provider.ts";
 import { ProviderDescriptor } from "./provider_descriptor.ts";
 import { resolveSingleton } from "./resolve/resolve_singleton.ts";
 import { resolveTransient } from "./resolve/resolve_transient.ts";
 import { injectProperties } from "./resolve/utils.ts";
-import { ServiceIdentifier } from "./service_identifier.ts";
-import { ConstructType, Lifetime, MaybePromise } from "./types.ts";
+import type { ServiceIdentifier } from "./service_identifier.ts";
+import { type ConstructType, Lifetime, type MaybePromise } from "./types.ts";
 
 export class ContainerImpl extends Container {
   _root?: ContainerImpl; // only has root when this container is a child container
-  _modules = new Set<Module>();
+  _modules: Set<Module> = new Set();
 
   // deno-lint-ignore no-explicit-any
-  _providers = new Map<ServiceIdentifier<any>, Provider<any>>();
+  _providers: Map<ServiceIdentifier<any>, Provider<any>> = new Map();
   // deno-lint-ignore no-explicit-any
-  _values = new Map<ServiceIdentifier<any>, any>();
+  _values: Map<ServiceIdentifier<any>, any> = new Map();
   // deno-lint-ignore no-explicit-any
-  _aliases = new Map<ServiceIdentifier<any>, ServiceIdentifier<any>>();
+  _aliases: Map<ServiceIdentifier<any>, ServiceIdentifier<any>> = new Map();
 
-  // deno-lint-ignore ban-types
-  _scopes = new WeakMap<object, Promise<Container>>();
+  _scopes: WeakMap<object, Promise<Container>> = new WeakMap();
 
   _booted = false;
   _booting?: Promise<void>; // booting promise (promise lock)
@@ -224,7 +223,6 @@ export class ContainerImpl extends Container {
     return this._closing;
   }
 
-  // deno-lint-ignore ban-types
   scope(target: object = {}): Promise<Container> {
     if (!this._scopes.has(target)) {
       this._scopes.set(

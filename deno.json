@@ -1,10 +1,22 @@
 {
+  "name": "@denostack/monopole",
   "version": "0.3.0",
+  "tasks": {
+    "test": "deno task test:unit && deno task test:lint && deno task test:format && deno task test:types",
+    "test:format": "deno fmt --check",
+    "test:lint": "deno lint",
+    "test:unit": "deno test -A",
+    "test:types": "deno check mod.ts",
+    "build:npm": "deno run --allow-sys --allow-env --allow-read --allow-write --allow-net --allow-run scripts/build_npm.ts"
+  },
   "imports": {
-    "dnt/": "https://deno.land/x/dnt@0.34.0/",
-    "testing/": "https://deno.land/std@0.186.0/testing/",
-    "fmt/": "https://deno.land/std@0.186.0/fmt/",
-    "@type-challenges/utils": "https://esm.sh/@type-challenges/utils@0.1.1/index.d.ts"
+    "@deno/dnt": "jsr:@deno/dnt@^0.41.3",
+    "@std/assert": "jsr:@std/assert@^1.0.11",
+    "@std/fmt": "jsr:@std/fmt@^1.0.5",
+    "@std/testing": "jsr:@std/testing@^1.0.9"
+  },
+  "exports": {
+    ".": "./mod.ts"
   },
   "lint": {
     "exclude": [".npm"]
@@ -12,12 +24,5 @@
   "fmt": {
     "exclude": [".npm"]
   },
-  "tasks": {
-    "test": "deno task test:unit && deno task test:lint && deno task test:format && deno task test:types",
-    "test:format": "deno fmt --check",
-    "test:lint": "deno lint",
-    "test:unit": "deno test -A",
-    "test:types": "deno check mod.ts",
-    "build:npm": "deno run --allow-env --allow-read --allow-write --allow-net --allow-run scripts/build_npm.ts"
-  }
+  "lock": false
 }
