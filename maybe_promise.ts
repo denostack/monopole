@@ -1,19 +1,19 @@
 import type { MaybePromise } from "./types.ts";
 
 /** @internal */
-export interface MaybePromiseChain<T> {
+export interface MaybePromiseWrapper<T> {
   next<TNext>(
     next: (value: T) => MaybePromise<TNext>,
-  ): MaybePromiseChain<TNext>;
+  ): MaybePromiseWrapper<TNext>;
   value(): MaybePromise<T>;
 }
 
 /** @internal */
-export function chain(): MaybePromiseChain<void>;
-export function chain<T>(value: MaybePromise<T>): MaybePromiseChain<T>;
+export function chain(): MaybePromiseWrapper<void>;
+export function chain<T>(value: MaybePromise<T>): MaybePromiseWrapper<T>;
 export function chain(
   value?: MaybePromise<unknown>,
-): MaybePromiseChain<unknown> {
+): MaybePromiseWrapper<unknown> {
   return {
     next(next) {
       if (value instanceof Promise) {
@@ -26,6 +26,14 @@ export function chain(
       return value;
     },
   };
+}
+
+export function all<T>(values: MaybePromise<T>[]): MaybePromiseWrapper<T[]> {
+  if (values.some((value) => value instanceof Promise)) {
+    return chain(Promise.all(values));
+  } else {
+    return chain(values as T[]);
+  }
 }
 
 /** @internal */

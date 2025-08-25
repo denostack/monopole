@@ -1,11 +1,11 @@
 import { assertEquals, assertInstanceOf } from "@std/assert";
-import { chain } from "./maybe_promise.ts";
+import { all, chain } from "./maybe_promise.ts";
 
 function asyncValue<T>(value: T, ms = 100): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
-Deno.test("MaybePromise, sync sync", () => {
+Deno.test("MaybePromise - chain, sync sync", () => {
   const value = chain("")
     .next((value) => {
       return value + "1";
@@ -18,7 +18,7 @@ Deno.test("MaybePromise, sync sync", () => {
   assertEquals(value, "12");
 });
 
-Deno.test("MaybePromise, async sync", async () => {
+Deno.test("MaybePromise - chain, async sync", async () => {
   const value = chain("")
     .next((value) => {
       return asyncValue(value + "1");
@@ -32,7 +32,7 @@ Deno.test("MaybePromise, async sync", async () => {
   assertEquals(await value, "12");
 });
 
-Deno.test("MaybePromise, async sync", async () => {
+Deno.test("MaybePromise - chain, async sync", async () => {
   const value = chain("")
     .next((value) => {
       return asyncValue(value + "1");
@@ -46,7 +46,7 @@ Deno.test("MaybePromise, async sync", async () => {
   assertEquals(await value, "12");
 });
 
-Deno.test("MaybePromise, sync async", async () => {
+Deno.test("MaybePromise - chain, sync async", async () => {
   const value = chain("")
     .next((value) => {
       return value + "1";
@@ -58,4 +58,24 @@ Deno.test("MaybePromise, sync async", async () => {
 
   assertInstanceOf(value, Promise);
   assertEquals(await value, "12");
+});
+
+Deno.test("MaybePromise - all, sync", () => {
+  assertEquals(all([]).value(), []);
+  assertEquals(all(["1"]).value(), ["1"]);
+  assertEquals(all(["1", "2"]).value(), ["1", "2"]);
+});
+
+Deno.test("MaybePromise - all, sync async mixed", async () => {
+  const values = all(["1", asyncValue("2")]).value();
+
+  assertInstanceOf(values, Promise);
+  assertEquals(await values, ["1", "2"]);
+});
+
+Deno.test("MaybePromise - all, async", async () => {
+  const values = all([asyncValue("1"), asyncValue("2")]).value();
+
+  assertInstanceOf(values, Promise);
+  assertEquals(await values, ["1", "2"]);
 });
