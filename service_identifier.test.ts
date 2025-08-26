@@ -2,13 +2,13 @@ import { assertEquals } from "@std/assert";
 
 import { toString } from "./utils/service_identifier.ts";
 
-Deno.test("ServiceIdentifier, toString", () => {
+Deno.test("should convert service identifiers to string representation", () => {
   assertEquals(toString("test"), '"test"');
   assertEquals(toString('t"est'), '"t\\"est"');
   assertEquals(toString(Symbol("hello")), "Symbol(hello)");
 });
 
-Deno.test("ServiceIdentifier, toString class / function", () => {
+Deno.test("should convert class and function identifiers to string", () => {
   class Test {}
   assertEquals(toString(Test), "[class Test]");
   assertEquals(toString(class {}), "[anonymous class]");

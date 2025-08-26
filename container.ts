@@ -6,7 +6,7 @@ export abstract class Container implements AsyncDisposable {
   abstract has<T>(id: ServiceIdentifier<T>): boolean;
   abstract dispose(): Promise<void>;
 
-  [Symbol.asyncDispose]() {
+  [Symbol.asyncDispose](): PromiseLike<void> {
     return this.dispose();
   }
 }

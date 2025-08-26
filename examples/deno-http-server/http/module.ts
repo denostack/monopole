@@ -1,4 +1,4 @@
-import type { Container, Module } from "../deps.ts";
+import type { Module } from "../deps.ts";
 import { loggerModule } from "../logger/module.ts";
 import { HttpServer } from "./http_server.ts";
 
@@ -12,6 +12,4 @@ export const httpModule: Module = {
   exports: [
     HttpServer,
   ],
-  boot(container: Container) {
-  },
 };

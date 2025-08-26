@@ -1,7 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { isThunk } from "./thunk.ts";
 
-Deno.test("Thunk - isThunk", () => {
+Deno.test("should identify thunk functions correctly", () => {
   class Foo {}
   class AbstractFoo {}
 

@@ -13,7 +13,7 @@ import { UndefinedError } from "./error/undefined_error.ts";
 import type { Module } from "./module.ts";
 import type { ServiceIdentifier } from "./types.ts";
 
-Deno.test("createContainer, define value", async () => {
+Deno.test("should create container with value providers", async () => {
   class Foo {
     constructor(public message: string) {}
   }
@@ -32,7 +32,7 @@ Deno.test("createContainer, define value", async () => {
   assertStrictEquals(container.get(Foo), container.get(Foo));
 });
 
-Deno.test("createContainer, define useFactory", async () => {
+Deno.test("should create container with factory providers", async () => {
   class Foo {
     constructor(public message: string) {}
   }
@@ -55,7 +55,7 @@ Deno.test("createContainer, define useFactory", async () => {
   assertStrictEquals(container.get(Foo), container.get(Foo));
 });
 
-Deno.test("createContainer, define useFactory with inject", async () => {
+Deno.test("should create container with factory providers that have dependencies", async () => {
   class Foo {
     constructor(public message: string) {}
   }
@@ -83,7 +83,7 @@ Deno.test("createContainer, define useFactory with inject", async () => {
   assertStrictEquals(container.get(Foo), container.get(Foo));
 });
 
-Deno.test("createContainer, define promise resolver", async () => {
+Deno.test("should resolve async factory providers", async () => {
   class Foo {
     constructor(public message: string) {}
   }
@@ -105,7 +105,7 @@ Deno.test("createContainer, define promise resolver", async () => {
   assertStrictEquals(container.get(Foo), container.get(Foo));
 });
 
-Deno.test("createContainer, define bind", async () => {
+Deno.test("should create container with class providers", async () => {
   class Driver1 {
   }
 
@@ -127,7 +127,7 @@ Deno.test("createContainer, define bind", async () => {
   assertStrictEquals(container.get(Driver2), container.get(Driver2));
 });
 
-Deno.test("createContainer, define alias", async () => {
+Deno.test("should create container with existing providers (aliases)", async () => {
   class Driver1 {
   }
 
@@ -163,7 +163,7 @@ Deno.test("createContainer, define alias", async () => {
   assertStrictEquals(container.get(Driver2), container.get("alias4"));
 });
 
-Deno.test("createContainer, has", async () => {
+Deno.test("should check if service exists in container", async () => {
   class Driver1 {
   }
 
@@ -196,7 +196,7 @@ Deno.test("createContainer, has", async () => {
   assertEquals(container.has("unknown"), false);
 });
 
-Deno.test("createContainer, resolve with inject", async () => {
+Deno.test("should inject dependencies using @inject decorator", async () => {
   class Driver {
   }
 
@@ -219,7 +219,7 @@ Deno.test("createContainer, resolve with inject", async () => {
   assertStrictEquals(container.get(Connection).driver, container.get(Driver));
 });
 
-Deno.test("createContainer, resolve with inject from parent", async () => {
+Deno.test("should inject dependencies from parent class with override", async () => {
   class Driver {
   }
 
@@ -257,7 +257,7 @@ Deno.test("createContainer, resolve with inject from parent", async () => {
   assertStrictEquals(connection.timeout, 2000); // override
 });
 
-Deno.test("createContainer, resolve circular dependency bind", async () => {
+Deno.test("should resolve circular dependencies between classes", async () => {
   class Parent {
     @inject(() => Child)
     child!: Child;
@@ -286,7 +286,7 @@ Deno.test("createContainer, resolve circular dependency bind", async () => {
   assertStrictEquals(child.parent, parent);
 });
 
-Deno.test("createContainer, resolve self dependency bind", async () => {
+Deno.test("should resolve self-referencing dependencies", async () => {
   class SelfDependency {
     @inject(() => SelfDependency)
     self!: SelfDependency;
@@ -304,7 +304,7 @@ Deno.test("createContainer, resolve self dependency bind", async () => {
   assertStrictEquals(value.self, value);
 });
 
-Deno.test("createContainer, boot", async () => {
+Deno.test("should call boot hook when creating container", async () => {
   let countCallBoot = 0;
 
   await createContainer({
@@ -316,7 +316,7 @@ Deno.test("createContainer, boot", async () => {
   assertEquals(countCallBoot, 1);
 });
 
-Deno.test("createContainer, dispose", async () => {
+Deno.test("should call dispose hook only once when disposing container", async () => {
   let countCallBoot = 0;
   let countCallDispose = 0;
 
@@ -337,7 +337,7 @@ Deno.test("createContainer, dispose", async () => {
   assertEquals(countCallDispose, 1);
 });
 
-Deno.test("createContainer, UndefinedError", async (t) => {
+Deno.test("should throw UndefinedError for unregistered services", async (t) => {
   const container = await createContainer({});
 
   class Something {}
@@ -395,7 +395,7 @@ Deno.test("createContainer, UndefinedError", async (t) => {
   );
 });
 
-Deno.test("createContainer, UndefinedError with alias", async () => {
+Deno.test("should throw UndefinedError with stack trace for alias chain", async () => {
   class Something {}
   try {
     await createContainer({
@@ -417,7 +417,7 @@ Deno.test("createContainer, UndefinedError with alias", async () => {
   }
 });
 
-Deno.test("createContainer, UndefinedError (many stack)", async () => {
+Deno.test("should throw UndefinedError with complete resolution stack", async () => {
   class Something {}
   const symbol = Symbol("symbol");
   const anonymousClass = (() => class {})();
@@ -447,7 +447,7 @@ Deno.test("createContainer, UndefinedError (many stack)", async () => {
   }
 });
 
-Deno.test("createContainer, module", async () => {
+Deno.test("should support module imports with lifecycle hooks", async () => {
   class Database {
     connect() {
       return Promise.resolve(true);

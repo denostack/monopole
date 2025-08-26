@@ -1,4 +1,4 @@
-import { Module } from "../../../mod.ts";
+import type { Module } from "../deps.ts";
 import { ConsoleLogger } from "./console_logger.ts";
 import { Logger } from "./logger.ts";
 
