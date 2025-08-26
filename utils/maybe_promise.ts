@@ -1,4 +1,4 @@
-import type { MaybePromise } from "./types.ts";
+import type { MaybePromise } from "../types.ts";
 
 /** @internal */
 export interface MaybePromiseWrapper<T> {

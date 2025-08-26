@@ -1,20 +1,20 @@
-export type ConstructType<T> = { new (...args: unknown[]): T };
-export type AbstractType<T> = {
+// deno-lint-ignore-file no-explicit-any
+
+export interface ConstructType<T> extends Function {
+  new (...args: unknown[]): T;
+}
+
+export interface AbstractType<T> extends Function {
   readonly prototype: T;
-};
+}
 
 export type MaybePromise<T> = T | Promise<T>;
 
-export enum Lifetime {
-  Transient = "transient",
-  Singleton = "singleton",
-  Scoped = "scoped",
-}
+export type Thunk<T> = () => T;
+export type MaybeThunk<T> = T | Thunk<T>;
 
-export interface Resolver<T> {
-  (): MaybePromise<T>;
-}
-
-export interface AfterResolveHandler<T> {
-  (instance: T): MaybePromise<void>;
-}
+export type ServiceIdentifier<T = any> =
+  | ConstructType<T>
+  | AbstractType<T>
+  | string
+  | symbol;

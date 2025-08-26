@@ -1,43 +1,23 @@
-import { type ServiceIdentifier, toString } from "../service_identifier.ts";
+import { toString } from "../utils/service_identifier.ts";
+import type { ServiceIdentifier } from "../types.ts";
 
 export interface StackItem {
   id: ServiceIdentifier<unknown>;
   alias?: true;
 }
 
-function resolveStackToString(stack: StackItem[]): string {
-  let result = "resolve stack:";
-  for (const [itemIndex, item] of stack.entries()) {
-    if (item.alias) {
-      result += `\n  [${itemIndex}] (alias) ${toString(item.id)}`;
-    } else {
-      result += `\n  [${itemIndex}] ${toString(item.id)}`;
-    }
-  }
-  return result;
-}
-
 export class UndefinedError extends Error {
-  resolveStack: StackItem[] & { toString(): string };
+  resolveStack: string[];
 
   constructor(
-    public target: ServiceIdentifier<unknown>,
-    aliasStack: ServiceIdentifier<unknown>[] = [],
-    beforeStack: StackItem[] = [],
+    public id: ServiceIdentifier<unknown>,
+    cause?: UndefinedError,
   ) {
-    super(`${toString(target)} is undefined!`);
+    super(`${toString(id)} is undefined!`);
     this.name = "UndefinedError";
-    this.resolveStack = new Proxy([
-      ...aliasStack.map((alias) => ({ id: alias, alias: true as const })),
-      { id: target },
-      ...beforeStack,
-    ], {
-      get(target, prop) {
-        if (prop === "toString") {
-          return () => resolveStackToString(target);
-        }
-        return Reflect.get(target, prop);
-      },
-    });
+    this.resolveStack = [
+      toString(id),
+      ...(cause?.resolveStack ?? []),
+    ];
   }
 }

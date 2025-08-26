@@ -1,9 +1,10 @@
 import { assertEquals } from "@std/assert";
 
-import { toString } from "./service_identifier.ts";
+import { toString } from "./utils/service_identifier.ts";
 
 Deno.test("ServiceIdentifier, toString", () => {
   assertEquals(toString("test"), '"test"');
+  assertEquals(toString('t"est'), '"t\\"est"');
   assertEquals(toString(Symbol("hello")), "Symbol(hello)");
 });
 

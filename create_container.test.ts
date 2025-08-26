@@ -1,107 +1,86 @@
 import {
-  assert,
   assertEquals,
-  assertFalse,
   assertInstanceOf,
-  assertNotStrictEquals,
   assertStrictEquals,
   assertThrows,
   fail,
 } from "@std/assert";
 import { assertSpyCalls, spy } from "@std/testing/mock";
 
-import { SYMBOL_ROOT_CONTAINER, SYMBOL_SCOPE } from "./constants.ts";
-import { Container } from "./container.ts";
 import { createContainer } from "./create_container.ts";
-import { inject } from "./decorator/inject.ts";
+import { inject } from "./decorators/inject.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
-import type { Module, ModuleDescriptor } from "./module.ts";
-import type { ServiceIdentifier } from "./service_identifier.ts";
-import { type ConstructType, Lifetime } from "./types.ts";
-
-async function assertContainerHasSingleton(
-  container: Container,
-  identifier: ServiceIdentifier<unknown>,
-) {
-  if (typeof identifier === "function") {
-    assertInstanceOf(
-      await container.resolve(identifier),
-      identifier as ConstructType<unknown>,
-    );
-  }
-  assertStrictEquals(
-    await container.resolve(identifier),
-    await container.resolve(identifier),
-  );
-}
-
-async function assertContainerUndefined(
-  container: Container,
-  identifier: ServiceIdentifier<unknown>,
-) {
-  assertFalse(container.has(identifier));
-  try {
-    await container.resolve(identifier);
-    fail("should throw UndefinedError");
-  } catch (e) {
-    assertInstanceOf(e, UndefinedError);
-  }
-}
+import type { Module } from "./module.ts";
+import type { ServiceIdentifier } from "./types.ts";
 
 Deno.test("createContainer, define value", async () => {
   class Foo {
     constructor(public message: string) {}
   }
 
-  const container = createContainer();
-  container.value("message", "hello world!");
-  container.value(Foo, new Foo("hello world!"));
+  const container = await createContainer({
+    providers: [
+      { id: "message", useValue: "hello world!" },
+      { id: Foo, useValue: Promise.resolve(new Foo("hello world!")) },
+    ],
+    exports: ["message", Foo],
+  });
 
-  assertEquals(container.get("message"), "hello world!");
+  assertEquals(container.get<string>("message"), "hello world!");
   assertEquals(container.get(Foo), new Foo("hello world!"));
 
-  const resolved1 = container.resolve("message");
-  const resolved2 = container.resolve(Foo);
-
-  assertInstanceOf(resolved1, Promise);
-  assertInstanceOf(resolved2, Promise);
-
-  assertEquals(await resolved1, "hello world!");
-  assertEquals(await resolved2, new Foo("hello world!"));
-
-  assertStrictEquals(
-    await container.resolve(Foo),
-    await container.resolve(Foo),
-  ); // singleton
+  assertStrictEquals(container.get(Foo), container.get(Foo));
 });
 
-Deno.test("createContainer, define resolver", async () => {
+Deno.test("createContainer, define useFactory", async () => {
   class Foo {
     constructor(public message: string) {}
   }
 
-  const container = createContainer();
+  const container = await createContainer({
+    providers: [
+      {
+        id: "resolver",
+        useFactory: () => ({ message: "this is resolver" }),
+      },
+      { id: Foo, useFactory: () => new Foo("this is foo") },
+    ],
+    exports: ["resolver", Foo],
+  });
 
-  container.resolver("resolver", () => ({ message: "this is resolver" }));
-  container.resolver(Foo, () => new Foo("this is foo"));
+  assertEquals(container.get("resolver"), { message: "this is resolver" });
+  assertEquals(container.get(Foo), new Foo("this is foo"));
 
-  const resolved1 = container.resolve("resolver");
-  const resolved2 = container.resolve(Foo);
+  assertStrictEquals(container.get("resolver"), container.get("resolver"));
+  assertStrictEquals(container.get(Foo), container.get(Foo));
+});
 
-  assertInstanceOf(resolved1, Promise);
-  assertInstanceOf(resolved2, Promise);
+Deno.test("createContainer, define useFactory with inject", async () => {
+  class Foo {
+    constructor(public message: string) {}
+  }
 
-  assertEquals(await resolved1, { message: "this is resolver" });
-  assertEquals(await resolved2, new Foo("this is foo"));
+  const container = await createContainer({
+    providers: [
+      {
+        id: "resolver",
+        inject: [Foo],
+        useFactory: (foo: Foo) => ({ foo }),
+      },
+      { id: Foo, useFactory: () => new Foo("this is foo") },
+    ],
+    exports: ["resolver", Foo],
+  });
 
+  assertEquals(container.get("resolver"), { foo: new Foo("this is foo") });
+  assertEquals(container.get(Foo), new Foo("this is foo"));
+
+  assertStrictEquals(container.get("resolver"), container.get("resolver"));
   assertStrictEquals(
-    await container.resolve("resolver"),
-    await container.resolve("resolver"),
-  ); // singleton
-  assertStrictEquals(
-    await container.resolve(Foo),
-    await container.resolve(Foo),
-  ); // singleton
+    container.get<{ foo: Foo }>("resolver").foo,
+    container.get(Foo),
+  );
+  assertStrictEquals(container.get(Foo), container.get(Foo));
 });
 
 Deno.test("createContainer, define promise resolver", async () => {
@@ -109,113 +88,115 @@ Deno.test("createContainer, define promise resolver", async () => {
     constructor(public message: string) {}
   }
 
-  const container = createContainer();
+  const container = await createContainer({
+    providers: [
+      {
+        id: Foo,
+        useFactory: () =>
+          new Promise<Foo>((resolve) =>
+            setTimeout(() => resolve(new Foo("promise resolver")), 50)
+          ),
+      },
+    ],
+    exports: [Foo],
+  });
 
-  container.resolver(
-    Foo,
-    () =>
-      new Promise<Foo>((resolve) =>
-        setTimeout(() => resolve(new Foo("promise resolver")), 50)
-      ),
-  );
-
-  const resolved = container.resolve(Foo);
-  assertInstanceOf(resolved, Promise);
-
-  assertEquals(await resolved, new Foo("promise resolver"));
-  assertStrictEquals(
-    await container.resolve(Foo),
-    await container.resolve(Foo),
-  ); // singleton
+  assertEquals(container.get(Foo), new Foo("promise resolver"));
+  assertStrictEquals(container.get(Foo), container.get(Foo));
 });
 
 Deno.test("createContainer, define bind", async () => {
-  const container = createContainer();
-
   class Driver1 {
   }
 
   class Driver2 {
   }
 
-  container.bind("driver1", Driver1);
-  container.bind(Driver2);
+  const container = await createContainer({
+    providers: [
+      { id: "driver1", useClass: Driver1 },
+      Driver2,
+    ],
+    exports: ["driver1", Driver2],
+  });
 
-  const resolved1 = container.resolve<Driver1>("driver1");
-  const resolved2 = container.resolve(Driver2);
+  assertInstanceOf(container.get<Driver1>("driver1"), Driver1);
+  assertInstanceOf(container.get(Driver2), Driver2);
 
-  assertInstanceOf(resolved1, Promise);
-  assertInstanceOf(resolved2, Promise);
-
-  assertInstanceOf(await resolved1, Driver1);
-  assertInstanceOf(await resolved2, Driver2);
-
-  assertStrictEquals(await container.resolve("driver1"), await resolved1); // same instance (singleton)
-  assertStrictEquals(await container.resolve(Driver2), await resolved2); // same instance (singleton)`
+  assertStrictEquals(container.get("driver1"), container.get("driver1"));
+  assertStrictEquals(container.get(Driver2), container.get(Driver2));
 });
 
 Deno.test("createContainer, define alias", async () => {
-  const container = createContainer();
-
   class Driver1 {
   }
 
   class Driver2 {
   }
 
-  container.value("value", { message: "this is value" });
-  container.resolver("resolver", () => ({ message: "this is resolver" }));
-  container.bind("driver1", Driver1);
-  container.bind(Driver2);
+  const container = await createContainer({
+    providers: [
+      { id: "value", useValue: { message: "this is value" } },
+      { id: "resolver", useFactory: () => ({ message: "this is resolver" }) },
+      { id: "driver1", useClass: Driver1 },
+      Driver2,
+      { id: "alias1", useExisting: "value" },
+      { id: "alias2", useExisting: "resolver" },
+      { id: "alias3", useExisting: "driver1" },
+      { id: "alias4", useExisting: Driver2 },
+    ],
+    exports: [
+      "value",
+      "resolver",
+      "driver1",
+      Driver2,
+      "alias1",
+      "alias2",
+      "alias3",
+      "alias4",
+    ],
+  });
 
-  container.alias("alias1", "value");
-  container.alias("alias2", "resolver");
-  container.alias("alias3", "driver1");
-  container.alias("alias4", Driver2);
-
-  const result1 = await container.resolve("value");
-  const result2 = await container.resolve("resolver");
-  const result3 = await container.resolve("driver1");
-  const result4 = await container.resolve(Driver2);
-
-  assertStrictEquals(result1, await container.resolve("alias1"));
-  assertStrictEquals(result2, await container.resolve("alias2"));
-  assertStrictEquals(result3, await container.resolve("alias3"));
-  assertStrictEquals(result4, await container.resolve("alias4"));
+  assertStrictEquals(container.get("value"), container.get("alias1"));
+  assertStrictEquals(container.get("resolver"), container.get("alias2"));
+  assertStrictEquals(container.get("driver1"), container.get("alias3"));
+  assertStrictEquals(container.get(Driver2), container.get("alias4"));
 });
 
-Deno.test("createContainer, has", () => {
-  const container = createContainer();
-
+Deno.test("createContainer, has", async () => {
   class Driver1 {
   }
 
   class Driver2 {
   }
 
-  container.value("value", { message: "this is value" });
-  container.resolver("resolver", () => ({ message: "this is resolver" }));
-  container.bind("driver1", Driver1);
-  container.bind(Driver2);
-  container.alias("alias1", "value");
-  container.alias("alias2", "broken");
-
-  assert(container.has(Container));
-  assert(container.has(SYMBOL_ROOT_CONTAINER));
+  const container = await createContainer({
+    providers: [
+      { id: "value", useValue: { message: "this is value" } },
+      { id: "resolver", useFactory: () => ({ message: "this is resolver" }) },
+      { id: "driver1", useClass: Driver1 },
+      Driver2,
+      { id: "alias", useExisting: "value" },
+    ],
+    exports: [
+      "value",
+      "resolver",
+      "driver1",
+      Driver2,
+      "alias",
+    ],
+  });
 
   assertEquals(container.has("value"), true);
   assertEquals(container.has("resolver"), true);
   assertEquals(container.has("driver1"), true);
   assertEquals(container.has(Driver2), true);
-  assertEquals(container.has("alias1"), true);
-  assertEquals(container.has("alias2"), false); // ?!
+  assertEquals(container.has("alias"), true);
 
   assertEquals(container.has("unknown"), false);
 });
 
 Deno.test("createContainer, resolve with inject", async () => {
-  const container = createContainer();
-
   class Driver {
   }
 
@@ -224,27 +205,21 @@ Deno.test("createContainer, resolve with inject", async () => {
     driver!: Driver;
   }
 
-  container.bind(Driver);
-  container.bind(Connection);
+  const container = await createContainer({
+    providers: [
+      Driver,
+      Connection,
+    ],
+    exports: [Driver, Connection],
+  });
 
-  const driverPromise = container.resolve(Driver);
-  const connectionPromise = container.resolve(Connection);
+  assertInstanceOf(container.get(Driver), Driver);
+  assertInstanceOf(container.get(Connection), Connection);
 
-  assertInstanceOf(driverPromise, Promise);
-  assertInstanceOf(connectionPromise, Promise);
-
-  const driver = await driverPromise;
-  const connection = await connectionPromise;
-
-  assertInstanceOf(driver, Driver);
-  assertInstanceOf(connection, Connection);
-
-  assertInstanceOf(connection.driver, Driver);
+  assertStrictEquals(container.get(Connection).driver, container.get(Driver));
 });
 
 Deno.test("createContainer, resolve with inject from parent", async () => {
-  const container = createContainer();
-
   class Driver {
   }
 
@@ -261,13 +236,18 @@ Deno.test("createContainer, resolve with inject from parent", async () => {
     override timeout: number = -1;
   }
 
-  container.value("CONNECTION_TIMEOUT", 1000);
-  container.value("DB_CONNECTION_TIMEOUT", 2000);
-  container.bind(Driver);
-  container.bind(Connection, DatabaseConnection);
+  const container = await createContainer({
+    providers: [
+      { id: "CONNECTION_TIMEOUT", useValue: 1000 },
+      { id: "DB_CONNECTION_TIMEOUT", useValue: 2000 },
+      Driver,
+      { id: Connection, useClass: DatabaseConnection },
+    ],
+    exports: [Driver, Connection],
+  });
 
-  const driver = await container.resolve(Driver);
-  const connection = await container.resolve(Connection);
+  const driver = container.get(Driver);
+  const connection = container.get(Connection);
 
   assertInstanceOf(driver, Driver);
   assertInstanceOf(connection, DatabaseConnection);
@@ -277,49 +257,27 @@ Deno.test("createContainer, resolve with inject from parent", async () => {
   assertStrictEquals(connection.timeout, 2000); // override
 });
 
-Deno.test("createContainer, run create (factory)", async () => {
-  const container = createContainer();
-
-  class Connection {
-  }
-
-  class Controller {
-    @inject("connection")
-    public connection!: Connection;
-  }
-
-  container.bind("connection", Connection);
-
-  const controller = await container.create(Controller);
-
-  assertInstanceOf(controller, Controller);
-  assertInstanceOf(
-    controller.connection,
-    Connection,
-  );
-
-  assertNotStrictEquals(await container.create(Controller), controller);
-});
-
 Deno.test("createContainer, resolve circular dependency bind", async () => {
-  const container = createContainer();
-
   class Parent {
-    @inject("child")
-    public child!: Child;
+    @inject(() => Child)
+    child!: Child;
   }
 
   class Child {
-    @inject("parent")
-    public parent!: Parent;
+    @inject(() => Parent)
+    parent!: Parent;
   }
 
-  container.bind("parent", Parent);
-  container.bind("child", Child);
+  const container = await createContainer({
+    providers: [
+      Parent,
+      Child,
+    ],
+    exports: [Parent, Child],
+  });
 
-  // assert
-  const parent = await container.resolve<Parent>("parent");
-  const child = await container.resolve<Child>("child");
+  const parent = container.get(Parent);
+  const child = container.get(Child);
 
   assertInstanceOf(parent, Parent);
   assertInstanceOf(child, Child);
@@ -329,16 +287,17 @@ Deno.test("createContainer, resolve circular dependency bind", async () => {
 });
 
 Deno.test("createContainer, resolve self dependency bind", async () => {
-  const container = createContainer();
-
   class SelfDependency {
-    @inject("self")
-    public self!: SelfDependency;
+    @inject(() => SelfDependency)
+    self!: SelfDependency;
   }
 
-  container.bind("self", SelfDependency);
+  const container = await createContainer({
+    providers: [SelfDependency],
+    exports: [SelfDependency],
+  });
 
-  const value = await container.resolve<SelfDependency>("self");
+  const value = container.get(SelfDependency);
 
   assertInstanceOf(value, SelfDependency);
 
@@ -346,99 +305,40 @@ Deno.test("createContainer, resolve self dependency bind", async () => {
 });
 
 Deno.test("createContainer, boot", async () => {
-  const container = createContainer();
-
-  let countCallConfigure = 0;
   let countCallBoot = 0;
 
-  container.register({
-    provide() {
-      countCallConfigure++;
-    },
+  await createContainer({
     boot() {
       countCallBoot++;
     },
   });
 
-  container.boot();
-  container.boot();
-  await container.boot();
-
-  assertEquals(countCallConfigure, 1);
   assertEquals(countCallBoot, 1);
 });
 
-Deno.test("createContainer, after boot Making all objects available without a promise", async () => {
-  const container = createContainer();
-
-  container.value("value", Promise.resolve("by value"));
-  // deno-lint-ignore require-await
-  container.resolver("resolver", async () => "by resolver");
-  container.alias("alias.value", "value");
-  container.alias("alias.resolver", "resolver");
-
-  await container.boot();
-
-  assertEquals(container.get("value"), "by value");
-  assertEquals(container.get("resolver"), "by resolver");
-  assertEquals(container.get("alias.value"), "by value");
-  assertEquals(container.get("alias.resolver"), "by resolver");
-});
-
-Deno.test("createContainer, close", async () => {
-  const container = createContainer();
-
-  let countCallConfigure = 0;
+Deno.test("createContainer, dispose", async () => {
   let countCallBoot = 0;
-  let countCallClose = 0;
+  let countCallDispose = 0;
 
-  container.register({
-    provide() {
-      countCallConfigure++;
-    },
+  const container = await createContainer({
     boot() {
       countCallBoot++;
     },
-    close() {
-      countCallClose++;
+    dispose() {
+      countCallDispose++;
     },
   });
 
-  await container.boot();
-  await container.close(); // reset
+  container.dispose();
+  container.dispose();
+  await container.dispose();
 
-  await container.boot();
-
-  assertEquals(countCallConfigure, 2);
-  assertEquals(countCallBoot, 2);
-  assertEquals(countCallClose, 1);
-});
-
-Deno.test("createContainer, boot with promise", async () => {
-  const container = createContainer();
-
-  container.value("instance", Promise.resolve({ name: "instance" }));
-  container.resolver("resolver", () => {
-    return Promise.resolve({ name: "resolver" });
-  });
-
-  const promiseInstance = container.resolve("instance");
-  const promiseResolver = container.resolve("resolver");
-
-  assertEquals(promiseInstance instanceof Promise, true);
-  assertEquals(promiseResolver instanceof Promise, true);
-
-  await container.boot();
-
-  assertEquals(container.get("instance"), { name: "instance" });
-  assertEquals(container.get("resolver"), { name: "resolver" });
-
-  assertStrictEquals(container.get("instance"), await promiseInstance);
-  assertStrictEquals(container.get("resolver"), await promiseResolver);
+  assertEquals(countCallBoot, 1);
+  assertEquals(countCallDispose, 1);
 });
 
 Deno.test("createContainer, UndefinedError", async (t) => {
-  const container = createContainer();
+  const container = await createContainer({});
 
   class Something {}
 
@@ -446,51 +346,46 @@ Deno.test("createContainer, UndefinedError", async (t) => {
     name: string;
     id: ServiceIdentifier<unknown>;
     errorMessage: string;
-    resolveStackString: string;
+    resolveStack: string[];
   }[] = [
     {
       name: "string",
       id: "instance",
       errorMessage: `"instance" is undefined!`,
-      resolveStackString: `resolve stack:
-  [0] "instance"`,
+      resolveStack: ['"instance"'],
     },
     {
       name: "symbol",
       id: Symbol("symbol"),
       errorMessage: `Symbol(symbol) is undefined!`,
-      resolveStackString: `resolve stack:
-  [0] Symbol(symbol)`,
+      resolveStack: ["Symbol(symbol)"],
     },
     {
       name: "class",
       id: Something,
       errorMessage: `[class Something] is undefined!`,
-      resolveStackString: `resolve stack:
-  [0] [class Something]`,
+      resolveStack: ["[class Something]"],
     },
     {
       name: "unknown class",
       id: (() => class {})(),
       errorMessage: `[anonymous class] is undefined!`,
-      resolveStackString: `resolve stack:
-  [0] [anonymous class]`,
+      resolveStack: ["[anonymous class]"],
     },
   ];
 
   await Promise.all(
-    cases.map(({ name, id, errorMessage, resolveStackString }) => {
+    cases.map(({ name, id, errorMessage, resolveStack }) => {
       return t.step({
         name,
         fn: () => {
           const error = assertThrows(
-            () => container.resolve(id),
+            () => container.get(id),
             UndefinedError,
             errorMessage,
           ) as UndefinedError;
-          assertStrictEquals(error.target, id);
-          assertEquals(error.resolveStack, [{ id: id }]);
-          assertEquals(error.resolveStack.toString(), resolveStackString);
+          assertStrictEquals(error.id, id);
+          assertEquals(error.resolveStack, resolveStack);
         },
         sanitizeOps: false,
         sanitizeResources: false,
@@ -502,64 +397,23 @@ Deno.test("createContainer, UndefinedError", async (t) => {
 
 Deno.test("createContainer, UndefinedError with alias", async () => {
   class Something {}
-
-  const container = createContainer();
-
-  container.resolver(
-    "instance",
-    () => ({ instance: container.resolve("alias1") }),
-  );
-  container.alias("alias1", "alias2");
-  container.alias("alias2", Something);
-
-  {
-    try {
-      container.resolve("alias2");
-      fail();
-    } catch (e) {
-      assertInstanceOf(e, UndefinedError);
-      assertEquals(
-        e.message,
-        `[class Something] is undefined!`,
-      );
-      assertEquals(e.resolveStack, [
-        { id: "alias2", alias: true },
-        { id: Something },
-      ]);
-      assertEquals(
-        e.resolveStack.toString(),
-        `resolve stack:
-  [0] (alias) "alias2"
-  [1] [class Something]`,
-      );
-    }
-  }
-
-  {
-    try {
-      await container.resolve("instance");
-      fail();
-    } catch (e) {
-      assertInstanceOf(e, UndefinedError);
-      assertEquals(
-        e.message,
-        `"instance" is undefined!`,
-      );
-      assertEquals(
-        e.resolveStack.toString(),
-        `resolve stack:
-  [0] "instance"
-  [1] (alias) "alias1"
-  [2] (alias) "alias2"
-  [3] [class Something]`,
-      );
-      assertEquals(e.resolveStack, [
-        { id: "instance" },
-        { id: "alias1", alias: true },
-        { id: "alias2", alias: true },
-        { id: Something },
-      ]);
-    }
+  try {
+    await createContainer({
+      providers: [
+        { id: "alias", useExisting: Something },
+      ],
+    });
+    fail();
+  } catch (e) {
+    assertInstanceOf(e, UndefinedError);
+    assertEquals(
+      e.message,
+      '"alias" is undefined!',
+    );
+    assertEquals(e.resolveStack, [
+      '"alias"',
+      "[class Something]",
+    ]);
   }
 });
 
@@ -568,267 +422,85 @@ Deno.test("createContainer, UndefinedError (many stack)", async () => {
   const symbol = Symbol("symbol");
   const anonymousClass = (() => class {})();
 
-  const container = createContainer();
-
-  container.resolver(
-    "instance",
-    () => ({ instance: container.resolve(symbol) }),
-  );
-  container.resolver(
-    symbol,
-    () => ({ instance: container.resolve(Something) }),
-  );
-  container.resolver(
-    Something,
-    () => ({ instance: container.resolve(anonymousClass) }),
-  );
-  container.resolver(
-    anonymousClass,
-    () => ({ instance: container.resolve("unknown") }),
-  );
-
   try {
-    await container.resolve("instance");
+    await createContainer({
+      providers: [
+        { id: "instance", useExisting: symbol },
+        { id: symbol, useExisting: Something },
+        { id: Something, useExisting: anonymousClass },
+        { id: anonymousClass, useExisting: "unknown" },
+      ],
+    });
   } catch (e) {
     assertInstanceOf(e, UndefinedError);
     assertEquals(
       e.message,
       `"instance" is undefined!`,
     );
-    assertEquals(
-      e.resolveStack.toString(),
-      `resolve stack:
-  [0] "instance"
-  [1] Symbol(symbol)
-  [2] [class Something]
-  [3] [anonymous class]
-  [4] "unknown"`,
-    );
     assertEquals(e.resolveStack, [
-      { id: "instance" },
-      { id: symbol },
-      { id: Something },
-      { id: anonymousClass },
-      { id: "unknown" },
+      '"instance"',
+      "Symbol(symbol)",
+      "[class Something]",
+      "[anonymous class]",
+      '"unknown"',
     ]);
   }
 });
 
-Deno.test("createContainer, predefined values", async () => {
-  const container = createContainer();
-
-  assertStrictEquals(container.get(Container), container);
-  assertStrictEquals(container.get(SYMBOL_ROOT_CONTAINER), container);
-
-  assertStrictEquals(await container.resolve(Container), container);
-  assertStrictEquals(await container.resolve(SYMBOL_ROOT_CONTAINER), container);
-
-  // 1-depth
-  const scopedContainer = await container.scope();
-
-  assertStrictEquals(scopedContainer.get(Container), scopedContainer);
-  assertStrictEquals(
-    scopedContainer.get(SYMBOL_ROOT_CONTAINER),
-    container,
-  );
-
-  assertStrictEquals(await scopedContainer.resolve(Container), scopedContainer);
-  assertStrictEquals(
-    await scopedContainer.resolve(SYMBOL_ROOT_CONTAINER),
-    container,
-  );
-
-  // 2-depth
-  const scopedContainer2 = await scopedContainer.scope();
-
-  assertStrictEquals(
-    scopedContainer2.get(Container),
-    scopedContainer2,
-  );
-  assertStrictEquals(
-    scopedContainer2.get(SYMBOL_ROOT_CONTAINER),
-    container,
-  );
-
-  assertStrictEquals(
-    await scopedContainer2.resolve(Container),
-    scopedContainer2,
-  );
-  assertStrictEquals(
-    await scopedContainer2.resolve(SYMBOL_ROOT_CONTAINER),
-    container,
-  );
-});
-
-Deno.test("createContainer, lifetime transient", async () => {
-  class BindClass {}
-  class ResolveClass {}
-
-  const container = createContainer();
-
-  container.bind(BindClass).lifetime(Lifetime.Transient);
-  container.resolver(ResolveClass, () => new ResolveClass()).lifetime(
-    Lifetime.Transient,
-  );
-
-  assertInstanceOf(await container.resolve(BindClass), BindClass);
-  assertNotStrictEquals(
-    await container.resolve(BindClass),
-    await container.resolve(BindClass),
-  );
-
-  assertInstanceOf(await container.resolve(ResolveClass), ResolveClass);
-  assertNotStrictEquals(
-    await container.resolve(ResolveClass),
-    await container.resolve(ResolveClass),
-  );
-});
-
-Deno.test("createContainer, lifetime singleton", async () => {
-  class BindClass {}
-  class ResolveClass {}
-
-  const container = createContainer();
-
-  container.bind(BindClass).lifetime(Lifetime.Singleton);
-  container.resolver(ResolveClass, () => new ResolveClass()).lifetime(
-    Lifetime.Singleton,
-  );
-
-  assertInstanceOf(await container.resolve(BindClass), BindClass);
-  assertStrictEquals(
-    await container.resolve(BindClass),
-    await container.resolve(BindClass),
-  );
-
-  assertInstanceOf(await container.resolve(ResolveClass), ResolveClass);
-  assertStrictEquals(
-    await container.resolve(ResolveClass),
-    await container.resolve(ResolveClass),
-  );
-});
-
-Deno.test("createContainer, lifetime scoped", async () => {
-  class Scoping {}
-
-  class ScopedBindClass {}
-  class ScopedResolveClass {}
-  class SingletonBindClass {}
-  class SingletonResolveClass {}
-
-  const container = createContainer();
-
-  container.bind(ScopedBindClass).lifetime(Lifetime.Scoped);
-  container.resolver(ScopedResolveClass, () => new ScopedResolveClass())
-    .lifetime(
-      Lifetime.Scoped,
-    );
-  container.bind(SingletonBindClass).lifetime(Lifetime.Singleton);
-  container.resolver(SingletonResolveClass, () => new SingletonResolveClass())
-    .lifetime(
-      Lifetime.Singleton,
-    );
-  container.alias(Scoping, SYMBOL_SCOPE);
-
-  // singleton!
-  await assertContainerHasSingleton(container, ScopedBindClass);
-  await assertContainerHasSingleton(container, ScopedResolveClass);
-
-  {
-    const scoping = new Scoping();
-
-    const scopedContainer = await container.scope(scoping);
-
-    assertStrictEquals(scopedContainer, await container.scope(scoping)); // multiple, same container
-
-    assertStrictEquals(scopedContainer.get(Scoping), scoping);
-    assertStrictEquals(scopedContainer.get(SYMBOL_SCOPE), scoping);
-    await assertContainerHasSingleton(scopedContainer, ScopedBindClass);
-    await assertContainerHasSingleton(scopedContainer, ScopedResolveClass);
-
-    // singleton is same
-    assertStrictEquals(
-      await scopedContainer.resolve(SingletonBindClass),
-      await container.resolve(SingletonBindClass),
-    );
-    // but different from parent container
-    assertNotStrictEquals(
-      await scopedContainer.resolve(ScopedBindClass),
-      await container.resolve(ScopedBindClass),
-    );
-  }
-});
-
-Deno.test("createContainer, lifetime scoped, split container space", async () => {
-  const container = createContainer();
-
-  {
-    class BindClass {}
-    class ResolveClass {}
-
-    const scopedContainer = await container.scope();
-
-    scopedContainer.bind(BindClass);
-    scopedContainer.resolver(
-      ResolveClass,
-      () => new ResolveClass(),
-    );
-
-    await assertContainerHasSingleton(scopedContainer, BindClass);
-    await assertContainerHasSingleton(scopedContainer, ResolveClass);
-
-    await assertContainerUndefined(container, BindClass);
-    await assertContainerUndefined(container, ResolveClass);
-  }
-});
-
 Deno.test("createContainer, module", async () => {
-  class Connection {
+  class Database {
     connect() {
       return Promise.resolve(true);
     }
-    close() {
+    dispose() {
       return Promise.resolve(true);
     }
   }
 
-  const connectSpy = spy(Connection.prototype, "connect");
-  const closeSpy = spy(Connection.prototype, "close");
+  const connectSpy = spy(Database.prototype, "connect");
+  const disposeSpy = spy(Database.prototype, "dispose");
 
-  class TestModule implements Module {
-    provide(container: ModuleDescriptor) {
-      container.bind(Connection);
-    }
-    async boot(container: ModuleDescriptor) {
-      const connection = await container.resolve(Connection);
+  const dbModule: Module = {
+    providers: [
+      Database,
+    ],
+    exports: [Database],
+    async boot(container) {
+      const connection = container.get(Database);
       await connection.connect();
-    }
+    },
+    async dispose(container) {
+      const connection = await container.get(Database);
+      await connection.dispose();
+    },
+  };
 
-    async close(container: ModuleDescriptor) {
-      const connection = await container.resolve(Connection);
-      await connection.close();
-    }
+  class App {
+    @inject(Database)
+    connection!: Database;
   }
 
-  const container = createContainer();
-  container.register(new TestModule());
-
-  assertSpyCalls(connectSpy, 0);
-  assertSpyCalls(closeSpy, 0);
-
-  container.boot();
-  container.boot();
-  await container.boot();
-  await container.boot();
+  const container = await createContainer({
+    imports: [dbModule],
+    providers: [
+      App,
+    ],
+    exports: [App, Database],
+  });
 
   assertSpyCalls(connectSpy, 1);
-  assertSpyCalls(closeSpy, 0);
+  assertSpyCalls(disposeSpy, 0);
 
-  container.close();
-  container.close();
-  await container.close();
-  await container.close();
+  assertInstanceOf(container.get(App), App);
+  assertInstanceOf(container.get(Database), Database);
+
+  assertStrictEquals(container.get(App).connection, container.get(Database));
+
+  container.dispose();
+  container.dispose();
+  await container.dispose();
+  await container.dispose();
 
   assertSpyCalls(connectSpy, 1);
-  assertSpyCalls(closeSpy, 1);
+  assertSpyCalls(disposeSpy, 1);
 });
