@@ -11,37 +11,28 @@
   <a href="https://npmcharts.com/compare/monopole?minimal=true"><img alt="Downloads" src="https://img.shields.io/npm/dt/monopole.svg?style=flat-square" /></a>
 </p>
 
-This library provides a powerful and flexible dependency injection container for
-Deno applications. It allows you to easily manage your application's
-dependencies and their lifetimes. The library offers a variety of features,
-including value bindings, resolvers, aliases, and support for different
-lifetimes (singleton, transient, and scoped).
+A powerful and flexible dependency injection container for TypeScript/JavaScript applications. Monopole provides a modern, module-based approach to dependency injection with support for async resolution, property injection using TC39 Stage 3 decorators, and comprehensive lifecycle management.
 
 ## Features
 
-- Value bindings (also support async)
-- Resolver bindings (also support async)
-- Class bindings
-- Alias bindings
-- Inject decorator for resolving dependencies
-- Circular dependency resolution (even self dependency!)
-- Support for **singleton**, **transient**, and **scoped** lifetimes
-- Module
-- Bootstrap
+- **Module-based architecture** - Organize dependencies with modules that support imports/exports
+- **Multiple provider types** - Class, value, factory, and existing providers
+- **Property injection** - Using TC39 Stage 3 decorators (`@inject`)
+- **Async resolution** - Full support for async providers and initialization
+- **Circular dependency support** - Automatic resolution of circular dependencies
+- **Lifecycle management** - Module boot and dispose hooks
+- **TypeScript first** - Full TypeScript support with type inference
+- **Framework agnostic** - Works with Deno, Node.js, and browsers
 
-## Usage
+## Installation
 
-### with Deno
+### Deno
 
 ```ts
 import { createContainer } from "https://deno.land/x/monopole/mod.ts";
-
-const container = createContainer();
 ```
 
-### with Node.js & Browser
-
-**Install**
+### Node.js & Browser
 
 ```bash
 npm install monopole
@@ -49,290 +40,287 @@ npm install monopole
 
 ```ts
 import { createContainer } from "monopole";
-
-// Usage is as above :-)
 ```
 
-### Value bindings
-
-Value bindings allow you to bind a value directly to a specific key. This is
-useful when you want to store configuration values, pre-built instances, or
-other simple values in the container.
-
-Example:
+## Quick Start
 
 ```ts
-const container = createContainer();
-container.value("message", "hello world!");
-container.value("instance", Promise.resolve({ name: "instance" }));
+import { createContainer, inject, type Module } from "monopole";
 
-const message = await container.resolve("message");
-const instance = await container.resolve("instance");
-
-console.log(message); // "hello world!"
-console.log(instance); // { name: "instance" }
-```
-
-### Resolver bindings
-
-Resolver bindings allow you to provide a factory function that will be invoked
-when the dependency is resolved. This is useful when you want to create an
-instance of a class, build an object or return a value based on runtime
-information.
-
-Example:
-
-```ts
-const container = createContainer();
-
-container.resolver("resolver", () => ({ message: "this is resolver" }));
-container.resolver("asyncResolver", async () => {
-  return new Promise((resolve) =>
-    setTimeout(() => resolve({ message: "this is async resolver" }), 50)
-  );
-});
-
-const resolver = await container.resolve("resolver");
-const asyncResolver = await container.resolve("asyncResolver");
-
-console.log(resolver); // { message: "this is resolver" }
-console.log(asyncResolver); // { message: "this is async resolver" }
-```
-
-### Class bindings
-
-Class bindings allow you to bind a class constructor to a specific key. When the
-key is resolved, a new instance of the class will be created.
-
-Example:
-
-```ts
-class BaseClass {
-}
-
-class MyClass extends BaseClass {
-  constructor() {
-    this.message = "hello world!";
+// Define services
+class Logger {
+  log(message: string) {
+    console.log(`[LOG] ${message}`);
   }
 }
 
-const container = createContainer();
-container.bind(BaseClass, MyClass);
+class UserService {
+  @inject(Logger)
+  logger!: Logger;
 
-const instance = await container.resolve(BaseClass);
-
-console.log(instance.message); // "hello world!"
-```
-
-### Alias bindings
-
-Alias bindings allow you to bind one key to another key, effectively creating an
-alias for a value in the container.
-
-Example:
-
-```ts
-const container = createContainer();
-
-container.value("original", "this is the original value");
-container.alias("alias", "original");
-
-const original = await container.resolve("original");
-const alias = await container.resolve("alias");
-
-console.log(original); // "this is the original value"
-console.log(alias); // "this is the original value"
-```
-
-### Inject decorator for resolving dependencies
-
-The `@Inject` decorator is a convenient way to resolve dependencies and inject
-them into a class. This decorator makes it easy to specify which dependencies a
-class requires, while the dependency injection library takes care of the
-underlying instantiation and management of the dependencies.
-
-In the provided example code, a test demonstrates how to use the `@Inject`
-decorator to resolve a dependency for the `Controller` class:
-
-```ts
-class Connection {
+  getUser(id: string) {
+    this.logger.log(`Fetching user ${id}`);
+    return { id, name: "John Doe" };
+  }
 }
 
-class Controller {
-  @Inject("connection")
-  public connection!: Connection;
-}
+// Create a module
+const appModule: Module = {
+  providers: [
+    Logger,
+    UserService,
+  ],
+  exports: [UserService],
+};
 
-container.bind("connection", Connection);
-container.bind(Controller);
-
-const controller = await container.resolve(Controller);
-
-controller.connection instanceof Connection; // true
+// Create and use container
+const container = await createContainer(appModule);
+const userService = container.get(UserService);
+userService.getUser("123");
 ```
 
-### Circular dependency resolution
+## Core Concepts
 
-Circular dependency resolution Circular dependency resolution is a feature of
-the dependency injection library that allows you to handle cases where two or
-more classes depend on each other. This feature is useful in scenarios where
-classes have a mutual relationship, such as parent-child or sibling
-relationships. The library can resolve these circular dependencies
-automatically, ensuring that the correct instances are injected into the
-appropriate classes.
+### Modules
 
-In the example test code provided, a circular dependency is created between the
-`Parent` and `Child` classes. Each class has an `@Inject` decorator on a
-property, indicating that it should be injected with an instance of the other
-class:
+Modules are the building blocks of your application. They encapsulate providers and can import other modules to compose your dependency graph.
 
 ```ts
-const container = createContainer();
+import type { Container, Module } from "monopole";
 
+const databaseModule: Module = {
+  providers: [
+    { id: "dbConfig", useValue: { host: "localhost", port: 5432 } },
+    {
+      id: DatabaseConnection,
+      useFactory: async (config) => {
+        const conn = new DatabaseConnection(config);
+        await conn.connect();
+        return conn;
+      },
+      inject: ["dbConfig"],
+    },
+  ],
+  exports: [DatabaseConnection],
+  async dispose(container: Container) {
+    const conn = container.get(DatabaseConnection);
+    await conn.disconnect();
+  },
+};
+
+const appModule: Module = {
+  imports: [databaseModule],
+  providers: [UserRepository],
+  exports: [UserRepository],
+};
+```
+
+### Providers
+
+Monopole supports four types of providers:
+
+#### Class Provider
+
+```ts
+// Direct class registration
+providers: [MyService]
+
+// With explicit ID
+providers: [{
+  id: "myService",
+  useClass: MyService,
+}]
+```
+
+#### Value Provider
+
+```ts
+providers: [
+  { id: "apiUrl", useValue: "https://api.example.com" },
+  { id: "config", useValue: Promise.resolve({ key: "value" }) },
+]
+```
+
+#### Factory Provider
+
+```ts
+providers: [{
+  id: HttpClient,
+  useFactory: (apiUrl: string) => new HttpClient(apiUrl),
+  inject: ["apiUrl"],
+}]
+```
+
+#### Existing Provider (Alias)
+
+```ts
+providers: [
+  { id: Logger, useClass: ConsoleLogger },
+  { id: "logger", useExisting: Logger },
+]
+```
+
+### Property Injection
+
+Use the `@inject` decorator with TC39 Stage 3 decorator syntax:
+
+```ts
+import { inject } from "monopole";
+
+class OrderService {
+  @inject(Logger)
+  logger!: Logger;
+
+  @inject(DatabaseConnection)
+  db!: DatabaseConnection;
+
+  @inject("config")
+  config!: Config;
+
+  // With transformation
+  @inject(UserService, (service) => service.getUser.bind(service))
+  getUser!: (id: string) => User;
+}
+```
+
+### Optional Dependencies
+
+Factory providers can specify optional dependencies:
+
+```ts
+providers: [{
+  id: Service,
+  useFactory: (required, optional) => {
+    return new Service(required, optional ?? defaultValue);
+  },
+  inject: [
+    RequiredDep,
+    [OptionalDep, true], // true marks it as optional
+  ],
+}]
+```
+
+## Advanced Usage
+
+### Circular Dependencies
+
+Monopole automatically handles circular dependencies:
+
+```ts
 class Parent {
-  @Inject("child")
-  public child!: Child;
+  @inject(Child)
+  child!: Child;
 }
 
 class Child {
-  @Inject("parent")
-  public parent!: Parent;
+  @inject(Parent)
+  parent!: Parent;
 }
 
-container.bind("parent", Parent);
-container.bind("child", Child);
+const module: Module = {
+  providers: [Parent, Child],
+  exports: [Parent, Child],
+};
 
-// assert
-const parent = await container.resolve<Parent>("parent");
-const child = await container.resolve<Child>("child");
+const container = await createContainer(module);
+const parent = container.get(Parent);
+const child = container.get(Child);
 
 console.log(parent.child === child); // true
 console.log(child.parent === parent); // true
 ```
 
-### Support for singleton, transient, and scoped lifetimes
+### Module Composition
 
-The container supports different lifetimes for bindings:
-
-- **Singleton**: The instance will be created once and reused for all subsequent
-  resolutions.
-- **Transient**: A new instance will be created for each resolution.
-- **Scoped**: The instance will be created once per scope.
-
-Example:
+Compose complex applications from smaller modules:
 
 ```ts
-class SingletonClass {}
-class TransientClass {}
-class ScopedClass {}
+// Feature modules
+const authModule: Module = {
+  providers: [AuthService, JwtService],
+  exports: [AuthService],
+};
 
-const container = createContainer();
+const dataModule: Module = {
+  providers: [Database, UserRepository],
+  exports: [UserRepository],
+};
 
-container.bind(SingletonClass).lifetime(Lifetime.Singleton);
-container.bind(TransientClass).lifetime(Lifetime.Transient);
-container.bind(ScopedClass).lifetime(Lifetime.Scoped);
+// Application module
+const appModule: Module = {
+  imports: [authModule, dataModule],
+  providers: [
+    {
+      id: AppService,
+      useFactory: (auth, repo) => new AppService(auth, repo),
+      inject: [AuthService, UserRepository],
+    },
+  ],
+  exports: [AppService],
+  async boot(container) {
+    // Initialize application
+    const app = container.get(AppService);
+    await app.initialize();
+  },
+  async dispose(container) {
+    // Cleanup
+    const app = container.get(AppService);
+    await app.shutdown();
+  },
+};
 
-// Singleton example
-const singleton1 = await container.resolve(SingletonClass);
-const singleton2 = await container.resolve(SingletonClass);
-console.log(singleton1 === singleton2); // true
-
-// Transient example
-const transient1 = await container.resolve(TransientClass);
-const transient2 = await container.resolve(TransientClass);
-console.log(transient1 === transient2); // false
-
-// Scoped example
-const scopedContainer = await container.scope();
-const scoped1 = await scopedContainer.resolve(ScopedClass);
-const scoped2 = await scopedContainer.resolve(ScopedClass);
-console.log(scoped1 === scoped2); // true
+// Create application
+const container = await createContainer(appModule);
+const app = container.get(AppService);
 ```
 
-### Module
+### Async Disposal
 
-Modules offer a convenient way to organize and manage dependencies in your
-application. By separating concerns, they help make your code more modular and
-maintainable.
-
-In the following example, a `ConnectionModule` is created that provides a
-`Connection` class and handles connecting and closing the connection during the
-boot and close phases of the application lifecycle.
+Containers support the async disposal pattern:
 
 ```ts
-class Connection {
-  connect(): Promise<void>;
-  close(): Promise<void>;
+// Using async disposal
+await using container = await createContainer(appModule);
+// Container will be automatically disposed when going out of scope
+
+// Manual disposal
+const container = await createContainer(appModule);
+try {
+  // Use container
+} finally {
+  await container.dispose();
 }
-
-class ConnectionModule implements Module {
-  provide(container: ModuleDescriptor) {
-    container.bind(Connection);
-  }
-
-  async boot(container: ModuleDescriptor) {
-    const connection = await container.resolve(Connection);
-    await connection.connect();
-  }
-
-  async close(container: ModuleDescriptor) {
-    const connection = await container.resolve(Connection);
-    await connection.close();
-  }
-}
-
-const container = createContainer();
-
-container.register(new ConnectionModule());
-
-await container.boot();
-
-/* ... */
-
-// When the application is shutting down
-await container.close();
 ```
 
-To use a module, simply create a new instance of it and register it with the
-container using the `register` method. The module's `provide`, `boot`, and
-`close` methods will be called automatically during the container's lifecycle.
+## Examples
 
-### Bootstrap
+- [Deno HTTP Server](./examples/deno-http-server) - Web application with modular architecture
 
-In this guide, we'll explore the boot process in detail and demonstrate how it
-enables you to access all objects via `get` without promises. We'll also show
-how the module's boot method is executed during this process.
+## API Reference
 
-Check out the example below:
+### `createContainer(module: Module): Promise<Container>`
 
-```ts
-const container = createContainer();
+Creates a new container from a module definition.
 
-container.value("value", Promise.resolve("by value"));
-container.resolver("resolver", async () => "by resolver");
-container.alias("alias.value", "value");
-container.alias("alias.resolver", "resolver");
+### `Container`
 
-await container.boot();
+- `get<T>(id: ServiceIdentifier<T>): T` - Get a resolved instance
+- `has(id: ServiceIdentifier): boolean` - Check if a service exists
+- `entries(): IterableIterator<[ServiceIdentifier, unknown]>` - Get all entries
+- `dispose(): Promise<void>` - Dispose the container and all modules
 
-container.get("value") === "by value"; // true
-container.get("resolver") === "by resolver"; // true
-container.get("alias.value") === "by value"; // true
-container.get("alias.resolver") === "by resolver"; // true
-```
+### `Module`
 
-During the execution of the boot method, the following internal steps are
-performed:
+- `imports?: Module[]` - Modules to import
+- `providers?: Provider[]` - Service providers
+- `exports?: ServiceIdentifier[]` - Exported service identifiers
+- `boot?(container: Container): MaybePromise<void>` - Initialization hook
+- `dispose?(container: Container): MaybePromise<void>` - Cleanup hook
 
-1. The registered modules are read and their `provide` methods are executed.
-2. The `boot` method of each registered module is executed.
-3. All registered singleton and scoped objects are created and stored within the
-   container.
+### `@inject(id: ServiceIdentifier, transformer?: (instance: T) => any)`
 
-This process ensures that all dependencies are properly initialized and
-available for use throughout your application.
+Property decorator for dependency injection.
 
-## Example
+## License
 
-- [Deno Web Server Example](./example/deno-http-server) Set up and run a web
-  application using DI with modular architecture.
+MIT
