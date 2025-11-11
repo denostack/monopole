@@ -30,9 +30,12 @@ export class ContainerContext extends Container {
 
   dispose(): Promise<void> {
     if (!this._disposed) {
-      this._disposed = Promise.all(
-        this.importedContainers.map((m) => m.dispose()),
-      ).then(() => this.disposeHandler?.());
+      this._disposed = Promise.resolve(this.disposeHandler?.())
+        .then(() =>
+          Promise.all(
+            this.importedContainers.map((m) => m.dispose()),
+          )
+        ).then(() => {});
     }
     return this._disposed;
   }

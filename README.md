@@ -11,15 +11,20 @@
   <a href="https://npmcharts.com/compare/monopole?minimal=true"><img alt="Downloads" src="https://img.shields.io/npm/dt/monopole.svg?style=flat-square" /></a>
 </p>
 
-A powerful and flexible dependency injection container for TypeScript/JavaScript applications. Monopole provides a modern, module-based approach to dependency injection with support for async resolution, property injection using TC39 Stage 3 decorators, and comprehensive lifecycle management.
+A powerful and flexible dependency injection container for TypeScript/JavaScript
+applications. Monopole provides a modern, module-based approach to dependency
+injection with support for async resolution, property injection using TC39 Stage
+3 decorators, and comprehensive lifecycle management.
 
 ## Features
 
-- **Module-based architecture** - Organize dependencies with modules that support imports/exports
+- **Module-based architecture** - Organize dependencies with modules that
+  support imports/exports
 - **Multiple provider types** - Class, value, factory, and existing providers
 - **Property injection** - Using TC39 Stage 3 decorators (`@inject`)
 - **Async resolution** - Full support for async providers and initialization
-- **Circular dependency support** - Automatic resolution of circular dependencies
+- **Circular dependency support** - Automatic resolution of circular
+  dependencies
 - **Lifecycle management** - Module boot and dispose hooks
 - **TypeScript first** - Full TypeScript support with type inference
 - **Framework agnostic** - Works with Deno, Node.js, and browsers
@@ -83,7 +88,8 @@ userService.getUser("123");
 
 ### Modules
 
-Modules are the building blocks of your application. They encapsulate providers and can import other modules to compose your dependency graph.
+Modules are the building blocks of your application. They encapsulate providers
+and can import other modules to compose your dependency graph.
 
 ```ts
 import type { Container, Module } from "monopole";
@@ -123,13 +129,13 @@ Monopole supports four types of providers:
 
 ```ts
 // Direct class registration
-providers: [MyService]
+providers: [MyService];
 
 // With explicit ID
 providers: [{
   id: "myService",
   useClass: MyService,
-}]
+}];
 ```
 
 #### Value Provider
@@ -138,7 +144,7 @@ providers: [{
 providers: [
   { id: "apiUrl", useValue: "https://api.example.com" },
   { id: "config", useValue: Promise.resolve({ key: "value" }) },
-]
+];
 ```
 
 #### Factory Provider
@@ -148,7 +154,7 @@ providers: [{
   id: HttpClient,
   useFactory: (apiUrl: string) => new HttpClient(apiUrl),
   inject: ["apiUrl"],
-}]
+}];
 ```
 
 #### Existing Provider (Alias)
@@ -157,7 +163,7 @@ providers: [{
 providers: [
   { id: Logger, useClass: ConsoleLogger },
   { id: "logger", useExisting: Logger },
-]
+];
 ```
 
 ### Property Injection
@@ -197,7 +203,7 @@ providers: [{
     RequiredDep,
     [OptionalDep, true], // true marks it as optional
   ],
-}]
+}];
 ```
 
 ## Advanced Usage
@@ -294,7 +300,8 @@ try {
 
 ## Examples
 
-- [Deno HTTP Server](./examples/deno-http-server) - Web application with modular architecture
+- [Deno HTTP Server](./examples/deno-http-server) - Web application with modular
+  architecture
 
 ## API Reference
 
