@@ -87,9 +87,9 @@ function createContainerContext(
         }
       }
 
-      await Promise.all(resolvers.keys().map((id) => resolveService(id)));
+      await Promise.all([...resolvers.keys()].map((id) => resolveService(id)));
       const resolvedValueEntries = await Promise.all(
-        resolvedValues.entries().map(async ([id, value]) =>
+        [...resolvedValues.entries()].map(async ([id, value]) =>
           [id, await value] as const
         ),
       );

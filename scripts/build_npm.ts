@@ -18,7 +18,7 @@ await build({
   },
   test: false,
   compilerOptions: {
-    lib: ["ES2021"],
+    lib: ["ES2021", "ESNext.Disposable", "ESNext.Decorators"],
   },
   package: {
     name: "monopole",
