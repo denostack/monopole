@@ -223,6 +223,38 @@ Deno.test("should inject dependencies using @inject decorator", async () => {
   assertStrictEquals(container.get(Connection).driver, container.get(Driver));
 });
 
+Deno.test("should inject dependencies using transformer function", async () => {
+  class UserService {
+    prefix = "user:";
+
+    getUser(id: string) {
+      return { id: `${this.prefix}${id}` };
+    }
+  }
+
+  const getUserSpy = spy(UserService.prototype, "getUser");
+
+  class OrderService {
+    @inject(UserService, (service) => service.getUser.bind(service))
+    getUser!: (id: string) => { id: string };
+  }
+
+  const container = await createContainer({
+    providers: [UserService, OrderService],
+    exports: [OrderService, UserService],
+  });
+
+  const orderService = container.get(OrderService);
+  const result = orderService.getUser("123");
+  const userService = container.get(UserService);
+
+  assertEquals(result, { id: "user:123" });
+  assertSpyCalls(getUserSpy, 1);
+  assertStrictEquals(getUserSpy.calls[0].self, userService);
+
+  getUserSpy.restore();
+});
+
 Deno.test("should inject dependencies from parent class with override", async () => {
   class Driver {
   }

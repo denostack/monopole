@@ -27,7 +27,50 @@ injection with support for async resolution, property injection using TC39 Stage
   dependencies
 - **Lifecycle management** - Module boot and dispose hooks
 - **TypeScript first** - Full TypeScript support with type inference
-- **Framework agnostic** - Works with Deno, Node.js, and browsers
+- **Framework agnostic** - Works with Deno, Node.js, and browsers *(Node/Bun/browsers require a build step; see below)*
+
+## Runtime compatibility & build requirements
+
+Monopole relies on the TC39 Stage 3 decorators proposal. Today, only Deno (v1.40+)/Deno Deploy ship this syntax natively.
+
+| Runtime | Native Stage 3 decorators | What you need |
+| --- | --- | --- |
+| **Deno** | ✅ (TS/TSX/JSX) | Works out of the box. Make sure you run `deno test`/`deno run` directly against the source files. |
+| **Node.js / Bun** | ❌ (syntax error or legacy decorators) | Compile with TypeScript 5+ or Babel before running. The emitted JS no longer contains raw `@decorator` syntax. |
+| **Browsers / Edge Functions / Workers** | ❌ | Bundle/transpile with your existing toolchain (Vite, Webpack, Rollup, etc.) so the shipped JS is decorator-free. |
+
+### Using TypeScript
+
+TypeScript 5.0 implements the new decorators proposal and accepts the syntax without `--experimentalDecorators`. A minimal `tsconfig.json`:
+
+```jsonc
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+    "moduleResolution": "bundler"
+  }
+}
+```
+
+Compile your sources (`tsc -p tsconfig.json` or via `ts-node --transpile-only`) and run the generated JS with Node/Bun.
+
+### Using Babel (via Vite/Webpack/Rollup)
+
+If you stay in JavaScript, enable the official Stage 3 transform:
+
+```jsonc
+{
+  "plugins": [
+    ["@babel/plugin-proposal-decorators", { "version": "2023-11" }],
+    "@babel/plugin-transform-class-properties"
+  ]
+}
+```
+
+Ensure your bundler (Vite, Next.js, etc.) runs Babel on Monopole-using files so the output no longer contains raw decorators before it reaches browsers/Node runtimes.
 
 ## Installation
 
@@ -37,7 +80,7 @@ injection with support for async resolution, property injection using TC39 Stage
 import { createContainer } from "https://deno.land/x/monopole/mod.ts";
 ```
 
-### Node.js & Browser
+### Node.js & Browser (after transpiling)
 
 ```bash
 npm install monopole
@@ -46,6 +89,8 @@ npm install monopole
 ```ts
 import { createContainer } from "monopole";
 ```
+
+> ℹ️ Remember: runtimes other than Deno must load the transpiled output from the "Runtime compatibility" section above. Install the package, run it through TypeScript/Babel in your build, and execute/bundle the generated JavaScript.
 
 ## Quick Start
 
