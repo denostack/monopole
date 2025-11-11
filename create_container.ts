@@ -1,5 +1,6 @@
 import type { Container } from "./container.ts";
 import { ContainerContext } from "./container_context.ts";
+import { getContainerState } from "./container_state.ts";
 import type { Module } from "./module.ts";
 import type { MaybePromise, ServiceIdentifier } from "./types.ts";
 import { createResolveService } from "./utils/create_resolve_service.ts";
@@ -18,13 +19,16 @@ function createContainerContext(
   let containerPromise = containerStorage.get(module);
   if (!containerPromise) {
     containerPromise = (async () => {
-      const importedContainers = await Promise.all(
+      const importedContainerStates = await Promise.all(
         (module.imports ?? []).map((m) =>
-          createContainerContext(m, containerStorage)
+          createContainerContext(m, containerStorage).then((container) => ({
+            container,
+            state: getContainerState(container),
+          }))
         ),
       );
       const importedValues = new Map(
-        importedContainers.reduce((carry, container) => [
+        importedContainerStates.reduce((carry, { container }) => [
           ...carry,
           ...container.entries(),
         ], [] as [ServiceIdentifier, unknown][]),
@@ -91,7 +95,6 @@ function createContainerContext(
       );
 
       const internalContext = new ContainerContext(
-        importedContainers,
         new Map([
           ...importedValues,
           ...resolvedValueEntries,
@@ -103,16 +106,28 @@ function createContainerContext(
       await module.boot?.(internalContext);
 
       const exportIdentifiers = new Set(module.exports ?? []);
-      return new ContainerContext(
-        importedContainers,
+      importedContainerStates.forEach(({ state }) => state.ref++);
+      const container = new ContainerContext(
         new Map(
           [
             ...importedValues,
             ...resolvedValueEntries,
           ].filter(([id]) => exportIdentifiers.has(id)),
         ),
-        () => Promise.resolve(module.dispose?.(internalContext)),
+        () => {
+          return Promise.resolve(module.dispose?.(internalContext)).then(
+            () => {
+              importedContainerStates.forEach(({ state }) => state.ref--);
+              return Promise.all(
+                importedContainerStates
+                  .filter(({ state }) => state.ref === 0)
+                  .map(({ container }) => container.dispose()),
+              );
+            },
+          ).catch(() => {}).then(() => {});
+        },
       );
+      return container;
     })();
     containerStorage.set(module, containerPromise);
   }

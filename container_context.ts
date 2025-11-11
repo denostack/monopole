@@ -6,9 +6,8 @@ export class ContainerContext extends Container {
   _disposed?: Promise<void>; // closing promise (promise lock)
 
   constructor(
-    readonly importedContainers: Container[],
     readonly _storage: Map<ServiceIdentifier, unknown>,
-    readonly disposeHandler?: () => Promise<void>,
+    readonly disposeHandler: () => Promise<void>,
   ) {
     super();
   }
@@ -30,12 +29,7 @@ export class ContainerContext extends Container {
 
   dispose(): Promise<void> {
     if (!this._disposed) {
-      this._disposed = Promise.resolve(this.disposeHandler?.())
-        .then(() =>
-          Promise.all(
-            this.importedContainers.map((m) => m.dispose()),
-          )
-        ).then(() => {});
+      this._disposed = Promise.resolve(this.disposeHandler?.());
     }
     return this._disposed;
   }
