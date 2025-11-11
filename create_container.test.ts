@@ -620,7 +620,7 @@ Deno.test("should support deeply nested modules with mixed async/sync providers 
       {
         id: Cache,
         inject: [Logger],
-        useFactory: async (logger: Logger) => {
+        useFactory: (logger: Logger) => {
           // Async factory with promise
           return Promise.resolve(new Cache(logger));
         },
@@ -904,7 +904,7 @@ Deno.test("should share single instance in diamond dependency pattern", async ()
 
   // Right branch - Payment module
   class PaymentService {
-    constructor(public logger: Logger, public config: any) {
+    constructor(public logger: Logger, public config: unknown) {
       constructorCalls.push("PaymentService:constructor");
       logger.log(
         `PaymentService created with config: ${JSON.stringify(config)}`,
@@ -923,7 +923,7 @@ Deno.test("should share single instance in diamond dependency pattern", async ()
       {
         id: PaymentService,
         inject: [Logger, "logConfig"],
-        useFactory: async (logger: Logger, config: any) => {
+        useFactory: async (logger: Logger, config: unknown) => {
           // Another async factory with delay
           await new Promise((resolve) =>
             setTimeout(resolve, Math.random() * 20)
@@ -991,7 +991,9 @@ Deno.test("should share single instance in diamond dependency pattern", async ()
       bootOrder.push("app:boot:start");
       const orderService = container.get(OrderService);
       const logger = container.get(Logger);
-      const config = container.get<any>("appConfig");
+      const config = container.get<{ name: string; version: string }>(
+        "appConfig",
+      );
       logger.log(`App module initialized: ${config.name} v${config.version}`);
       orderService.createOrder("app-boot", 50);
       await sleep(5);
