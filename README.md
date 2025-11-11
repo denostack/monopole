@@ -6,8 +6,9 @@
   <img alt="License" src="https://img.shields.io/npm/l/monopole.svg?style=flat-square" />
   <img alt="Language Typescript" src="https://img.shields.io/badge/language-Typescript-007acc.svg?style=flat-square" />
   <br />
-  <a href="https://deno.land/x/monopole"><img alt="deno.land/x/monopole" src="https://img.shields.io/badge/dynamic/json?url=https://api.github.com/repos/denostack/monopole/tags&query=$[0].name&display_name=tag&label=deno.land/x/monopole@&style=flat-square&logo=deno&labelColor=000&color=777" /></a>
-  <a href="https://www.npmjs.com/package/monopole"><img alt="Version" src="https://img.shields.io/npm/v/monopole.svg?style=flat-square&logo=npm" /></a>
+  <a href="https://jsr.io/@denostack/monopole"><img alt="JSR version" src="https://jsr.io/badges/@denostack/monopole?style=flat-square" /></a>
+  <a href="https://deno.land/x/monopole"><img alt="Deno version" src="https://deno.land/badge/monopole/version?style=flat-square" /></a>
+  <a href="https://www.npmjs.com/package/monopole"><img alt="NPM Version" src="https://img.shields.io/npm/v/monopole.svg?style=flat-square&logo=npm" /></a>
   <a href="https://npmcharts.com/compare/monopole?minimal=true"><img alt="Downloads" src="https://img.shields.io/npm/dt/monopole.svg?style=flat-square" /></a>
 </p>
 
@@ -27,21 +28,24 @@ injection with support for async resolution, property injection using TC39 Stage
   dependencies
 - **Lifecycle management** - Module boot and dispose hooks
 - **TypeScript first** - Full TypeScript support with type inference
-- **Framework agnostic** - Works with Deno, Node.js, and browsers *(Node/Bun/browsers require a build step; see below)*
+- **Framework agnostic** - Works with Deno, Node.js, and browsers
+  _(Node/Bun/browsers require a build step; see below)_
 
 ## Runtime compatibility & build requirements
 
-Monopole relies on the TC39 Stage 3 decorators proposal. Today, only Deno (v1.40+)/Deno Deploy ship this syntax natively.
+Monopole relies on the TC39 Stage 3 decorators proposal. Today, only Deno
+(v1.40+)/Deno Deploy ship this syntax natively.
 
-| Runtime | Native Stage 3 decorators | What you need |
-| --- | --- | --- |
-| **Deno** | ✅ (TS/TSX/JSX) | Works out of the box. Make sure you run `deno test`/`deno run` directly against the source files. |
-| **Node.js / Bun** | ❌ (syntax error or legacy decorators) | Compile with TypeScript 5+ or Babel before running. The emitted JS no longer contains raw `@decorator` syntax. |
-| **Browsers / Edge Functions / Workers** | ❌ | Bundle/transpile with your existing toolchain (Vite, Webpack, Rollup, etc.) so the shipped JS is decorator-free. |
+| Runtime                                 | Native Stage 3 decorators              | What you need                                                                                                    |
+| --------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Deno**                                | ✅ (TS/TSX/JSX)                        | Works out of the box. Make sure you run `deno test`/`deno run` directly against the source files.                |
+| **Node.js / Bun**                       | ❌ (syntax error or legacy decorators) | Compile with TypeScript 5+ or Babel before running. The emitted JS no longer contains raw `@decorator` syntax.   |
+| **Browsers / Edge Functions / Workers** | ❌                                     | Bundle/transpile with your existing toolchain (Vite, Webpack, Rollup, etc.) so the shipped JS is decorator-free. |
 
 ### Using TypeScript
 
-TypeScript 5.0 implements the new decorators proposal and accepts the syntax without `--experimentalDecorators`. A minimal `tsconfig.json`:
+TypeScript 5.0 implements the new decorators proposal and accepts the syntax
+without `--experimentalDecorators`. A minimal `tsconfig.json`:
 
 ```jsonc
 {
@@ -55,7 +59,8 @@ TypeScript 5.0 implements the new decorators proposal and accepts the syntax wit
 }
 ```
 
-Compile your sources (`tsc -p tsconfig.json` or via `ts-node --transpile-only`) and run the generated JS with Node/Bun.
+Compile your sources (`tsc -p tsconfig.json` or via `ts-node --transpile-only`)
+and run the generated JS with Node/Bun.
 
 ### Using Babel (via Vite/Webpack/Rollup)
 
@@ -70,14 +75,20 @@ If you stay in JavaScript, enable the official Stage 3 transform:
 }
 ```
 
-Ensure your bundler (Vite, Next.js, etc.) runs Babel on Monopole-using files so the output no longer contains raw decorators before it reaches browsers/Node runtimes.
+Ensure your bundler (Vite, Next.js, etc.) runs Babel on Monopole-using files so
+the output no longer contains raw decorators before it reaches browsers/Node
+runtimes.
 
 ## Installation
 
 ### Deno
 
+```bash
+deno add @denostack/monopole
+```
+
 ```ts
-import { createContainer } from "https://deno.land/x/monopole/mod.ts";
+import { createContainer } from "@denostack/monopole";
 ```
 
 ### Node.js & Browser (after transpiling)
@@ -90,7 +101,9 @@ npm install monopole
 import { createContainer } from "monopole";
 ```
 
-> ℹ️ Remember: runtimes other than Deno must load the transpiled output from the "Runtime compatibility" section above. Install the package, run it through TypeScript/Babel in your build, and execute/bundle the generated JavaScript.
+> ℹ️ Remember: runtimes other than Deno must load the transpiled output from the
+> "Runtime compatibility" section above. Install the package, run it through
+> TypeScript/Babel in your build, and execute/bundle the generated JavaScript.
 
 ## Quick Start
 
