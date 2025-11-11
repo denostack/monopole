@@ -3,12 +3,14 @@ import type { MaybePromise, ServiceIdentifier, Thunk } from "../types.ts";
 import { injectProperties } from "./inject_properties.ts";
 import { chain } from "./maybe_promise.ts";
 
+/** @internal */
 export interface CreateResolverServiceParams {
   resolvers: Map<ServiceIdentifier, Thunk<MaybePromise<unknown>>>;
   resolvedValues: Map<ServiceIdentifier, unknown>;
   importedValues: Map<ServiceIdentifier, unknown>;
 }
 
+/** @internal */
 export function createResolveService(
   { resolvers, resolvedValues, importedValues }: CreateResolverServiceParams,
 ) {

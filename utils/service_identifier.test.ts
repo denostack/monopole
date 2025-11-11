@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 
-import { toString } from "./utils/service_identifier.ts";
+import { toString } from "./service_identifier.ts";
 
 Deno.test("should convert service identifiers to string representation", () => {
   assertEquals(toString("test"), '"test"');

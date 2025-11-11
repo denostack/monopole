@@ -2,6 +2,7 @@ import { Container } from "./container.ts";
 import { UndefinedError } from "./error/undefined_error.ts";
 import type { ServiceIdentifier } from "./types.ts";
 
+/** @internal */
 export class ContainerContext extends Container {
   _disposed?: Promise<void>; // closing promise (promise lock)
 

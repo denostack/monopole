@@ -1,5 +1,6 @@
 import type { ServiceIdentifier } from "../types.ts";
 
+/** @internal */
 export function toString(id: ServiceIdentifier<unknown>): string {
   if (typeof id === "string") {
     return JSON.stringify(id);

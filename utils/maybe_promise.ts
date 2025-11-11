@@ -28,6 +28,7 @@ export function chain(
   };
 }
 
+/** @internal */
 export function all<T>(values: MaybePromise<T>[]): MaybePromiseWrapper<T[]> {
   if (values.some((value) => value instanceof Promise)) {
     return chain(Promise.all(values));

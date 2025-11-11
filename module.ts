@@ -1,6 +1,5 @@
 import type { Container } from "./container.ts";
-import type { Provider } from "./utils/provider.ts";
-import type { MaybePromise, ServiceIdentifier } from "./types.ts";
+import type { MaybePromise, Provider, ServiceIdentifier } from "./types.ts";
 
 export interface Module {
   imports?: Module[];
