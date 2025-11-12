@@ -385,7 +385,3 @@ Creates a new container from a module definition.
 ### `@inject(id: ServiceIdentifier, transformer?: (instance: T) => any)`
 
 Property decorator for dependency injection.
-
-## License
-
-MIT

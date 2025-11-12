@@ -1,10 +1,8 @@
 import { build, emptyDir } from "@deno/dnt";
 import { bgGreen } from "@std/fmt/colors";
+import denoJson from "../deno.json" with { type: "json" };
 
-const denoInfo = JSON.parse(
-  Deno.readTextFileSync(new URL("../deno.json", import.meta.url)),
-);
-const version = denoInfo.version;
+const version = denoJson.version;
 
 console.log(bgGreen(`version: ${version}`));
 
@@ -24,7 +22,7 @@ await build({
     name: "monopole",
     version,
     description:
-      "A versatile dependency injection container with features like value bindings, resolvers, aliases, and support for singleton, transient, and scoped lifetimes.",
+      "A modern, module-first DI container for TypeScript/JavaScript. Monopole supports async resolution, TC39 Stage 3 decorator property injection, and comprehensive lifecycle management for flexible, production-ready apps.",
     keywords: [
       "di",
       "ioc",
@@ -44,7 +42,8 @@ await build({
       url: "https://github.com/denostack/monopole/issues",
     },
   },
+  postBuild() {
+    Deno.copyFileSync("LICENSE", ".npm/LICENSE");
+    Deno.copyFileSync("README.md", ".npm/README.md");
+  },
 });
-
-// post build steps
-Deno.copyFileSync("README.md", ".npm/README.md");
