@@ -25,7 +25,7 @@ Deno.test("inject should reject mismatched type", () => {
 
 Deno.test("inject with transformer should accept transformer result type", () => {
   class _Target {
-    @inject(Foo, (_foo: Foo) => null as unknown as Bar)
+    @inject(Foo, (_foo: Foo) => new Bar())
     a!: Bar;
   }
 });
@@ -33,7 +33,7 @@ Deno.test("inject with transformer should accept transformer result type", () =>
 Deno.test("inject with transformer should reject mismatched transformer result type", () => {
   class _Target {
     // @ts-expect-error Type 'Bar' is not assignable to type 'Foo'
-    @inject(Foo, (_foo: Foo) => null as unknown as Bar)
+    @inject(Foo, (_foo: Foo) => new Bar())
     a!: Foo;
   }
 });
