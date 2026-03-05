@@ -29,7 +29,8 @@
       ".github",
       ".vscode",
       "scripts",
-      "examples"
+      "examples",
+      "**/*.test.ts"
     ]
   }
 }
