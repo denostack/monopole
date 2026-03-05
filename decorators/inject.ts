@@ -3,19 +3,29 @@ import type { MaybeThunk, ServiceIdentifier } from "../types.ts";
 
 export function inject<T>(
   id: MaybeThunk<ServiceIdentifier<T>>,
-  transformer?: (instance: T) => unknown,
+): (_: undefined, ctx: ClassFieldDecoratorContext<unknown, T>) => void;
+export function inject<T, F>(
+  id: MaybeThunk<ServiceIdentifier<T>>,
+  transformer: (instance: T) => F,
+): (_: undefined, ctx: ClassFieldDecoratorContext<unknown, F>) => void;
+export function inject(
+  id: MaybeThunk<ServiceIdentifier<unknown>>,
+  transformer?: (instance: unknown) => unknown,
 ): (
   _: undefined,
   ctx: ClassFieldDecoratorContext,
 ) => void {
-  return (_: undefined, ctx: ClassFieldDecoratorContext) => {
-    defineInject<T>(ctx.metadata, ctx.name as keyof T, id, transformer);
+  return (
+    _: undefined,
+    ctx: ClassFieldDecoratorContext,
+  ) => {
+    defineInject(ctx.metadata, ctx.name, id, transformer);
   };
 }
 
 export function defineInject<T>(
   metadata: DecoratorMetadataObject,
-  property: keyof T,
+  property: string | symbol,
   id: MaybeThunk<ServiceIdentifier<T>>,
   transformer?: (instance: T) => unknown,
 ) {
