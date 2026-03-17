@@ -7,7 +7,6 @@
   <img alt="Language Typescript" src="https://img.shields.io/badge/language-Typescript-007acc.svg?style=flat-square" />
   <br />
   <a href="https://jsr.io/@denostack/monopole"><img alt="JSR version" src="https://jsr.io/badges/@denostack/monopole?style=flat-square" /></a>
-  <a href="https://deno.land/x/monopole"><img alt="Deno version" src="https://deno.land/badge/monopole/version?style=flat-square" /></a>
   <a href="https://www.npmjs.com/package/monopole"><img alt="NPM Version" src="https://img.shields.io/npm/v/monopole.svg?style=flat-square&logo=npm" /></a>
   <a href="https://npmcharts.com/compare/monopole?minimal=true"><img alt="Downloads" src="https://img.shields.io/npm/dt/monopole.svg?style=flat-square" /></a>
 </p>
