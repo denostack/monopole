@@ -1,12 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 
-export interface ConstructType<T> extends Function {
-  new (...args: unknown[]): T;
-}
-
-export interface AbstractType<T> extends Function {
-  readonly prototype: T;
-}
+export type Constructor<T = object, A extends any[] = any[]> = new (...args: A) => T;
+export type AbstractConstructor<T = object, A extends any[] = any[]> = abstract new (...args: A) => T;
 
 export type MaybePromise<T> = T | Promise<T>;
 
@@ -14,13 +9,13 @@ export type Thunk<T> = () => T;
 export type MaybeThunk<T> = T | Thunk<T>;
 
 export type ServiceIdentifier<T = any> =
-  | ConstructType<T>
-  | AbstractType<T>
+  | Constructor<T>
+  | AbstractConstructor<T>
   | string
   | symbol;
 
 export type Provider<T = any> =
-  | ConstructType<T>
+  | Constructor<T>
   | ClassProvider<T>
   | ValueProvider<T>
   | FactoryProvider<T>
@@ -28,7 +23,7 @@ export type Provider<T = any> =
 
 export interface ClassProvider<T = any> {
   id: ServiceIdentifier<T>;
-  useClass: ConstructType<T>;
+  useClass: Constructor<T>;
   inject?: never;
 }
 
