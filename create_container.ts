@@ -59,9 +59,7 @@ function createContainerContext(
           const deps = provider.inject ?? [];
           resolvers.set(provider.id, async () => {
             const resolved = await Promise.all(
-              deps.map((dep) =>
-                Array.isArray(dep) ? dep : [dep, false] as const
-              ).map(async ([dep, optional]) => {
+              deps.map((dep) => Array.isArray(dep) ? dep : [dep, false] as const).map(async ([dep, optional]) => {
                 try {
                   return await resolveService(dep);
                 } catch (e) {
@@ -89,9 +87,7 @@ function createContainerContext(
 
       await Promise.all([...resolvers.keys()].map((id) => resolveService(id)));
       const resolvedValueEntries = await Promise.all(
-        [...resolvedValues.entries()].map(async ([id, value]) =>
-          [id, await value] as const
-        ),
+        [...resolvedValues.entries()].map(async ([id, value]) => [id, await value] as const),
       );
 
       const internalContext = new ContainerContext(

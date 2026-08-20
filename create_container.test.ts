@@ -1,10 +1,4 @@
-import {
-  assertEquals,
-  assertInstanceOf,
-  assertStrictEquals,
-  assertThrows,
-  fail,
-} from "@std/assert";
+import { assertEquals, assertInstanceOf, assertStrictEquals, assertThrows, fail } from "@std/assert";
 import { assertSpyCalls, spy } from "@std/testing/mock";
 
 import { createContainer } from "./create_container.ts";
@@ -96,10 +90,7 @@ Deno.test("should resolve async factory providers", async () => {
     providers: [
       {
         id: Foo,
-        useFactory: () =>
-          new Promise<Foo>((resolve) =>
-            setTimeout(() => resolve(new Foo("promise resolver")), 50)
-          ),
+        useFactory: () => new Promise<Foo>((resolve) => setTimeout(() => resolve(new Foo("promise resolver")), 50)),
       },
     ],
     exports: [Foo],
@@ -957,9 +948,7 @@ Deno.test("should share single instance in diamond dependency pattern", async ()
         inject: [Logger, "logConfig"],
         useFactory: async (logger: Logger, config: unknown) => {
           // Another async factory with delay
-          await new Promise((resolve) =>
-            setTimeout(resolve, Math.random() * 20)
-          );
+          await new Promise((resolve) => setTimeout(resolve, Math.random() * 20));
           return new PaymentService(logger, config);
         },
       },

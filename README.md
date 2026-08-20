@@ -11,29 +11,25 @@
   <a href="https://npmcharts.com/compare/monopole?minimal=true"><img alt="Downloads" src="https://img.shields.io/npm/dt/monopole.svg?style=flat-square" /></a>
 </p>
 
-A powerful and flexible dependency injection container for TypeScript/JavaScript
-applications. Monopole provides a modern, module-based approach to dependency
-injection with support for async resolution, property injection using TC39 Stage
-3 decorators, and comprehensive lifecycle management.
+A powerful and flexible dependency injection container for TypeScript/JavaScript applications. Monopole provides a
+modern, module-based approach to dependency injection with support for async resolution, property injection using TC39
+Stage 3 decorators, and comprehensive lifecycle management.
 
 ## Features
 
-- **Module-based architecture** - Organize dependencies with modules that
-  support imports/exports
+- **Module-based architecture** - Organize dependencies with modules that support imports/exports
 - **Multiple provider types** - Class, value, factory, and existing providers
 - **Property injection** - Using TC39 Stage 3 decorators (`@inject`)
 - **Async resolution** - Full support for async providers and initialization
-- **Circular dependency support** - Automatic resolution of circular
-  dependencies
+- **Circular dependency support** - Automatic resolution of circular dependencies
 - **Lifecycle management** - Module boot and dispose hooks
 - **TypeScript first** - Full TypeScript support with type inference
-- **Framework agnostic** - Works with Deno, Node.js, and browsers
-  _(Node/Bun/browsers require a build step; see below)_
+- **Framework agnostic** - Works with Deno, Node.js, and browsers _(Node/Bun/browsers require a build step; see below)_
 
 ## Runtime compatibility & build requirements
 
-Monopole relies on the TC39 Stage 3 decorators proposal. Today, only Deno
-(v1.40+)/Deno Deploy ship this syntax natively.
+Monopole relies on the TC39 Stage 3 decorators proposal. Today, only Deno (v1.40+)/Deno Deploy ship this syntax
+natively.
 
 | Runtime                                 | Native Stage 3 decorators              | What you need                                                                                                    |
 | --------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -43,8 +39,8 @@ Monopole relies on the TC39 Stage 3 decorators proposal. Today, only Deno
 
 ### Using TypeScript
 
-TypeScript 5.0 implements the new decorators proposal and accepts the syntax
-without `--experimentalDecorators`. A minimal `tsconfig.json`:
+TypeScript 5.0 implements the new decorators proposal and accepts the syntax without `--experimentalDecorators`. A
+minimal `tsconfig.json`:
 
 ```jsonc
 {
@@ -58,8 +54,7 @@ without `--experimentalDecorators`. A minimal `tsconfig.json`:
 }
 ```
 
-Compile your sources (`tsc -p tsconfig.json` or via `ts-node --transpile-only`)
-and run the generated JS with Node/Bun.
+Compile your sources (`tsc -p tsconfig.json` or via `ts-node --transpile-only`) and run the generated JS with Node/Bun.
 
 ### Using Babel (via Vite/Webpack/Rollup)
 
@@ -74,9 +69,8 @@ If you stay in JavaScript, enable the official Stage 3 transform:
 }
 ```
 
-Ensure your bundler (Vite, Next.js, etc.) runs Babel on Monopole-using files so
-the output no longer contains raw decorators before it reaches browsers/Node
-runtimes.
+Ensure your bundler (Vite, Next.js, etc.) runs Babel on Monopole-using files so the output no longer contains raw
+decorators before it reaches browsers/Node runtimes.
 
 ## Installation
 
@@ -100,9 +94,8 @@ npm install monopole
 import { createContainer } from "monopole";
 ```
 
-> ℹ️ Remember: runtimes other than Deno must load the transpiled output from the
-> "Runtime compatibility" section above. Install the package, run it through
-> TypeScript/Babel in your build, and execute/bundle the generated JavaScript.
+> ℹ️ Remember: runtimes other than Deno must load the transpiled output from the "Runtime compatibility" section above.
+> Install the package, run it through TypeScript/Babel in your build, and execute/bundle the generated JavaScript.
 
 ## Quick Start
 
@@ -145,8 +138,8 @@ userService.getUser("123");
 
 ### Modules
 
-Modules are the building blocks of your application. They encapsulate providers
-and can import other modules to compose your dependency graph.
+Modules are the building blocks of your application. They encapsulate providers and can import other modules to compose
+your dependency graph.
 
 ```ts
 import type { Container, Module } from "monopole";
@@ -357,8 +350,7 @@ try {
 
 ## Examples
 
-- [Deno HTTP Server](./examples/deno-http-server) - Web application with modular
-  architecture
+- [Deno HTTP Server](./examples/deno-http-server) - Web application with modular architecture
 
 ## API Reference
 
