@@ -1,4 +1,5 @@
 export * from "./types.ts";
+export * from "./provider.ts";
 export * from "./utils/service_identifier.ts";
 
 export * from "./decorators/inject.ts";
